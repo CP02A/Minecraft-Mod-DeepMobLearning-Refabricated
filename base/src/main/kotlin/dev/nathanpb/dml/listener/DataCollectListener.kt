@@ -40,17 +40,20 @@ class DataCollectListener : ServerEntityCombatEvents.AfterKilledOtherEntity {
     override fun afterKilledOtherEntity(world: ServerLevel, player: Entity, entity: LivingEntity, source: DamageSource) {
         if (player !is ServerPlayer) return
 
-        (player.inventory.hotbar() + player.offhandItem)
-            .filter { it.item is ItemDeepLearner }
-            .map { DeepLearnerData(it).inventory }
-            .flatten()
-            .filter { it.item is ItemDataModel }
-            .firstOrNullMapping(
-                map = { it.dataModel },
-                accept = { it.category?.tagKey?.let { tag -> entity.type.builtInRegistryHolder().`is`(tag) } == true && !it.tier().isMaxTier() }
-            )?.let {
-                modifyDataAmount(it, player.mainHandItem.`is`(ITEM_GLITCH_SWORD))
-            }
+        // The data models in a deep learner are decoded copies: the changed inventory is written back to the learner
+        for (learner in (player.inventory.hotbar() + player.offhandItem).filter { it.item is ItemDeepLearner }) {
+            val data = DeepLearnerData(learner)
+            val inventory = data.inventory
+            val model = inventory
+                .filter { it.item is ItemDataModel }
+                .firstOrNullMapping(
+                    map = { it.dataModel },
+                    accept = { it.category?.tagKey?.let { tag -> entity.type.builtInRegistryHolder().`is`(tag) } == true && !it.tier().isMaxTier() }
+                ) ?: continue
+            modifyDataAmount(model, player.mainHandItem.`is`(ITEM_GLITCH_SWORD))
+            data.inventory = inventory
+            return
+        }
     }
 
     private fun modifyDataAmount(dataModelData: DataModelData, isGlitchSword: Boolean) {

@@ -20,9 +20,19 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
   - a worn glitch chestplate (equipment asset, armor value from its data model),
   - checks: the trial keystone, loot fabricator and crushing recipes load, the loot fabricator turns pristine matter
     into loot, the data synthesizer turns data into energy.
-- Not tested in game yet: trials (keystone + trial key + waves + System Glitch fight), every modular effect,
-  the Simulation Chamber simulating, world generation of disruptions (disabled in 1.20.1 too), REI categories, data
-  collection by killing mobs, multiplayer.
+- Multiplayer with the Furcraft 1.3.0 modpack (Modrinth pack, 26.3) plus the other 26.3 ports (AE2, GuideME, Mekanism,
+  EnderIO, Industrial Foregoing, MineColonies, Thaumcraft, Titanium): a real dedicated server (Loom's production
+  server run) and a real client (production client run with a client game test that joins the server and plays like a
+  player, through the network). Passed:
+  - placing every machine from the hand, opening the GUIs, moving items into them with shift clicks,
+  - the loot fabricator making loot, the data synthesizer, the simulation chamber making matter (all seen in the menus
+    synced to the client),
+  - killing zombies with a deep learner in the hotbar adds data to its data model,
+  - attuning a trial key in a crafting table, starting a trial on the keystone, the waves, killing the System Glitch,
+    "Trial Succeeded" and the rewards,
+  - wearing glitch armor (armor value on the client) and its GUI, the System Glitch entity on the client.
+- Not tested in game yet: every modular effect one by one, world generation of disruptions (disabled in 1.20.1 too),
+  REI categories (the Furcraft pack uses JEI, which DML has no plugin for).
 
 ## How the port was done
 
@@ -93,6 +103,8 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
   simulacrum pickaxe tag had `"replace": "false"` (a string), the loot fabricator model referenced `#material#material`,
   the first-join advancement rewarded a loot table that doesn't exist (the Patchouli guide), `minecraft:grass` is
   `minecraft:short_grass`, and the convention biome tags are `c:is_*`.
+- Fixed: killing a mob didn't add data to the data model in the deep learner (the models are decoded copies of the
+  learner's stored stacks; the changed inventory is written back now).
 - Not changed on purpose: after its first item, the loot fabricator processes the following pristine matter without
   waiting again (its progress isn't reset), as in 1.20.1.
 - CurseForge/Modrinth/Maven publishing was removed from the build (the plugins don't support Gradle 9, and the
