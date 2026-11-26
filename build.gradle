@@ -81,6 +81,9 @@ allprojects {
     // Mod-specific names for the nested module jars (base -> dml-refabricated-base)
     if (project != rootProject) {
         base.archivesName = "dml-refabricated-${project.name}"
+        // The modules can't start without the main mod: only the root project's runs launch the game
+        loom.runs.configureEach { ideConfigGenerated(false) }
+        tasks.matching { it.name ==~ /run(Client|Server)/ }.configureEach { enabled = false }
     }
 
     jar {
