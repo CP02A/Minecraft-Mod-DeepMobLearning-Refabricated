@@ -6,24 +6,13 @@
     "LGL"
   ],
   "key": {
-    "E": {
-      "item": "minecraft:ender_pearl"
-    },
-    "L": {
-      "item": "minecraft:lapis_lazuli"
-    },
-    "R": {
-      "item": "minecraft:repeater"
-    },
-    "S": {
-      "item": "dml-refabricated:soot_redstone"
-    },
-    "G": {
-      "item": "minecraft:gold_ingot"
-    }
+    "E": "minecraft:ender_pearl",
+    "L": "minecraft:lapis_lazuli",
+    "R": "minecraft:repeater",
+    "S": "dml-refabricated:soot_redstone",
+    "G": "minecraft:gold_ingot"
   },
   "result": {
-    "item": "dml-refabricated:data_model",
-    "count": 1
+    "id": "dml-refabricated:data_model"
   }
 }

@@ -9,11 +9,11 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_end",
+      "id": "dml-refabricated:pristine_matter_end",
       "count": 8
     },
     {
-      "item": "dml-refabricated:physically_condensed_matrix_fragment",
+      "id": "dml-refabricated:physically_condensed_matrix_fragment",
       "count": 2
     }
   ]

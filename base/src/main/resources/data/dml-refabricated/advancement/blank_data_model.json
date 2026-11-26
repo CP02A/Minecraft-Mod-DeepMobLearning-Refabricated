@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:data_model"
+      "id": "dml-refabricated:data_model"
     },
     "title": {
       "translate": "advancements.dml-refabricated.blank_data_model"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:data_model"]
+            "items": "dml-refabricated:data_model"
           }
         ]
       }

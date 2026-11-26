@@ -9,12 +9,11 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_nether",
+      "id": "dml-refabricated:pristine_matter_nether",
       "count": 4
     },
     {
-      "item": "dml-refabricated:physically_condensed_matrix_fragment",
-      "count": 1
+      "id": "dml-refabricated:physically_condensed_matrix_fragment"
     }
   ]
 }

@@ -5,15 +5,11 @@
     "OR"
   ],
   "key": {
-    "O": {
-      "item": "minecraft:obsidian"
-    },
-    "R": {
-      "item": "dml-refabricated:soot_redstone"
-    }
+    "O": "minecraft:obsidian",
+    "R": "dml-refabricated:soot_redstone"
   },
   "result": {
-    "item": "dml-refabricated:soot_plate",
+    "id": "dml-refabricated:soot_plate",
     "count": 4
   }
 }

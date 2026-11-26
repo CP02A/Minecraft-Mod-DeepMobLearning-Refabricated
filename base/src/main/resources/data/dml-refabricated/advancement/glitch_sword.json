@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:glitch_sword"
+      "id": "dml-refabricated:glitch_sword"
     },
     "title": {
       "translate": "advancements.dml-refabricated.glitch_sword"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:glitch_sword"]
+            "items": "dml-refabricated:glitch_sword"
           }
         ]
       }

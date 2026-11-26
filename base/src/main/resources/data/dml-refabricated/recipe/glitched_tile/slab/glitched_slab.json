@@ -2,15 +2,13 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "#": {
-      "item": "dml-refabricated:glitched_tile"
-    }
+    "#": "dml-refabricated:glitched_tile"
   },
   "pattern": [
     "###"
   ],
   "result": {
-    "count": 6,
-    "item": "dml-refabricated:glitched_slab"
+    "id": "dml-refabricated:glitched_slab",
+    "count": 6
   }
 }

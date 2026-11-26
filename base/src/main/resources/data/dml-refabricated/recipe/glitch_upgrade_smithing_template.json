@@ -1,15 +1,9 @@
 {
   "type": "minecraft:crafting_shaped",
   "key": {
-    "#": {
-      "item": "minecraft:diamond"
-    },
-    "S": {
-      "item": "dml-refabricated:soot_plate"
-    },
-    "G": {
-      "item": "dml-refabricated:glitch_upgrade_smithing_template"
-    }
+    "#": "minecraft:diamond",
+    "S": "dml-refabricated:soot_plate",
+    "G": "dml-refabricated:glitch_upgrade_smithing_template"
   },
   "pattern": [
     "#G#",
@@ -17,7 +11,7 @@
     "###"
   ],
   "result": {
-    "count": 2,
-    "item": "dml-refabricated:glitch_upgrade_smithing_template"
+    "id": "dml-refabricated:glitch_upgrade_smithing_template",
+    "count": 2
   }
 }

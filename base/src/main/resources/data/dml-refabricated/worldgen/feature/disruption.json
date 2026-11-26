@@ -1,12 +1,8 @@
 {
   "type": "dml-refabricated:disruption",
-  "config": {
-    "radius": {
-      "type": "minecraft:uniform",
-      "value": {
-        "max_inclusive": 5,
-        "min_inclusive": 3
-      }
-    }
+  "radius": {
+    "type": "minecraft:uniform",
+    "max_inclusive": 5,
+    "min_inclusive": 3
   }
 }

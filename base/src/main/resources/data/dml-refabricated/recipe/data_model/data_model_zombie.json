@@ -6,15 +6,10 @@
     " R "
   ],
   "key": {
-    "D": {
-      "item": "dml-refabricated:data_model"
-    },
-    "R": {
-      "item": "minecraft:rotten_flesh"
-    }
+    "D": "dml-refabricated:data_model",
+    "R": "minecraft:rotten_flesh"
   },
   "result": {
-    "item": "dml-refabricated:data_model_zombie",
-    "count": 1
+    "id": "dml-refabricated:data_model_zombie"
   }
 }

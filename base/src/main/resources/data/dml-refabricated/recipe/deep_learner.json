@@ -6,21 +6,12 @@
     "PSP"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:repeater"
-    },
-    "S": {
-      "item": "dml-refabricated:soot_redstone"
-    },
-    "P": {
-      "item": "dml-refabricated:soot_plate"
-    },
-    "G": {
-      "item": "minecraft:glass_pane"
-    }
+    "R": "minecraft:repeater",
+    "S": "dml-refabricated:soot_redstone",
+    "P": "dml-refabricated:soot_plate",
+    "G": "minecraft:glass_pane"
   },
   "result": {
-    "item": "dml-refabricated:deep_learner",
-    "count": 1
+    "id": "dml-refabricated:deep_learner"
   }
 }

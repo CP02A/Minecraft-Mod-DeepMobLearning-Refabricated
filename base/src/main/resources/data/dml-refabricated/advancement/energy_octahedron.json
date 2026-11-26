@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:energy_octahedron"
+      "id": "dml-refabricated:energy_octahedron"
     },
     "title": {
       "translate": "advancements.dml-refabricated.energy_octahedron"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:energy_octahedron"]
+            "items": "dml-refabricated:energy_octahedron"
           }
         ]
       }

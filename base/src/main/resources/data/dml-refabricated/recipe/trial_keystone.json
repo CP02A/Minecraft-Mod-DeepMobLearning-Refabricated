@@ -6,21 +6,12 @@
     "SSS"
   ],
   "key": {
-    "K": {
-      "item": "dml-refabricated:trial_key"
-    },
-    "D": {
-      "item": "minecraft:diamond"
-    },
-    "S": {
-      "item": "minecraft:stone"
-    },
-    "C": {
-      "item": "dml-refabricated:machine_casing"
-    }
+    "K": "dml-refabricated:trial_key",
+    "D": "minecraft:diamond",
+    "S": "minecraft:stone",
+    "C": "dml-refabricated:machine_casing"
   },
   "result": {
-    "item": "dml-refabricated:trial_keystone",
-    "count": 1
+    "id": "dml-refabricated:trial_keystone"
   }
 }

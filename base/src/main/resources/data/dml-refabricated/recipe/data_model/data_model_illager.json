@@ -6,18 +6,11 @@
     " E "
   ],
   "key": {
-    "D": {
-      "item": "dml-refabricated:data_model"
-    },
-    "T": {
-      "item": "minecraft:totem_of_undying"
-    },
-    "E": {
-      "item": "minecraft:emerald"
-    }
+    "D": "dml-refabricated:data_model",
+    "T": "minecraft:totem_of_undying",
+    "E": "minecraft:emerald"
   },
   "result": {
-    "item": "dml-refabricated:data_model_illager",
-    "count": 1
+    "id": "dml-refabricated:data_model_illager"
   }
 }

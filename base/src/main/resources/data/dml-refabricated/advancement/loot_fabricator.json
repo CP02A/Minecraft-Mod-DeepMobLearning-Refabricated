@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:loot_fabricator"
+      "id": "dml-refabricated:loot_fabricator"
     },
     "title": {
       "translate": "advancements.dml-refabricated.loot_fabricator"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:loot_fabricator"]
+            "items": "dml-refabricated:loot_fabricator"
           }
         ]
       }

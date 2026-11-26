@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:glitch_ingot"
+      "id": "dml-refabricated:glitch_ingot"
     },
     "title": {
       "translate": "advancements.dml-refabricated.glitch_ingot"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:glitch_ingot"]
+            "items": "dml-refabricated:glitch_ingot"
           }
         ]
       }

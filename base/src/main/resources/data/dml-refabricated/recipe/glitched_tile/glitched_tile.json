@@ -6,15 +6,11 @@
     "SSS"
   ],
   "key": {
-    "S": {
-      "item": "minecraft:stone"
-    },
-    "P": {
-      "item": "dml-refabricated:polymer_clay"
-    }
+    "S": "minecraft:stone",
+    "P": "dml-refabricated:polymer_clay"
   },
   "result": {
-    "item": "dml-refabricated:glitched_tile",
+    "id": "dml-refabricated:glitched_tile",
     "count": 8
   }
 }

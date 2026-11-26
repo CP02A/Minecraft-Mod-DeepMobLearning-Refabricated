@@ -1,29 +1,22 @@
 {
   "required": true,
   "package": "dev.nathanpb.dml.mixin",
-  "compatibilityLevel": "JAVA_8",
+  "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "AbstractBlockAccessor",
     "BowItemMixin",
     "CrossbowItemMixin",
     "EndermanEntityMixin",
+    "FoodPropertiesMixin",
     "HungerManagerMixin",
     "ICraftingResultSlotMixin",
     "LivingEntityMixin",
-    "LootTableInvoker",
     "PlayerEntityMixin",
     "ServerWorldMixin",
-    "ShapelessRecipeAccessor",
     "SlotMixin",
-    "SmithingTemplateItemAccessor",
     "WListPanelAccessor",
     "WorldMixin"
   ],
-  "client": [
-    "BakedModelManagerAccessor",
-    "DrawContextAccessor",
-    "HandledScreenAccessor"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

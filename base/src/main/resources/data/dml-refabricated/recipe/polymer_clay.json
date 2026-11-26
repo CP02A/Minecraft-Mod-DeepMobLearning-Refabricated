@@ -6,13 +6,13 @@
     " CI"
   ],
   "key": {
-    "D": { "item": "minecraft:lapis_lazuli" },
-    "G": { "item": "minecraft:gold_ingot" },
-    "I": { "item": "minecraft:iron_ingot" },
-    "C": { "item": "minecraft:clay_ball" }
+    "D": "minecraft:lapis_lazuli",
+    "G": "minecraft:gold_ingot",
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:clay_ball"
   },
   "result": {
-    "item": "dml-refabricated:polymer_clay",
+    "id": "dml-refabricated:polymer_clay",
     "count": 16
   }
 }

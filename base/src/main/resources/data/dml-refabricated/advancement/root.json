@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:soot_redstone"
+      "id": "dml-refabricated:soot_redstone"
     },
     "title": {
       "translate": "itemGroup.dml-refabricated.tab_dml-refabricated"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:soot_redstone"]
+            "items": "dml-refabricated:soot_redstone"
           }
         ]
       }

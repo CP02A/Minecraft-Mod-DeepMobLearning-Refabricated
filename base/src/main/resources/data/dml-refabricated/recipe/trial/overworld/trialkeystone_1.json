@@ -10,7 +10,7 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_overworld",
+      "id": "dml-refabricated:pristine_matter_overworld",
       "count": 2
     }
   ]

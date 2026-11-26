@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:trial_key"
+      "id": "dml-refabricated:trial_key"
     },
     "title": {
       "translate": "advancements.dml-refabricated.trial"
@@ -18,10 +18,10 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:trial_key"]
+            "items": "dml-refabricated:trial_key"
           },
           {
-            "items": ["dml-refabricated:trial_keystone"]
+            "items": "dml-refabricated:trial_keystone"
           }
         ]
       }

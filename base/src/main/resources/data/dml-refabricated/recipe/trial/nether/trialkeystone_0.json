@@ -9,8 +9,7 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_nether",
-      "count": 1
+      "id": "dml-refabricated:pristine_matter_nether"
     }
   ]
 }

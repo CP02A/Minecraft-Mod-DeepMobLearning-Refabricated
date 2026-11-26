@@ -6,24 +6,13 @@
     "QBO"
   ],
   "key": {
-    "D": {
-      "item": "dml-refabricated:data_model"
-    },
-    "O": {
-      "item": "minecraft:obsidian"
-    },
-    "B": {
-      "item": "minecraft:blaze_rod"
-    },
-    "Q": {
-      "item": "minecraft:quartz"
-    },
-    "G": {
-      "item": "minecraft:ghast_tear"
-    }
+    "D": "dml-refabricated:data_model",
+    "O": "minecraft:obsidian",
+    "B": "minecraft:blaze_rod",
+    "Q": "minecraft:quartz",
+    "G": "minecraft:ghast_tear"
   },
   "result": {
-    "item": "dml-refabricated:data_model_nether",
-    "count": 1
+    "id": "dml-refabricated:data_model_nether"
   }
 }

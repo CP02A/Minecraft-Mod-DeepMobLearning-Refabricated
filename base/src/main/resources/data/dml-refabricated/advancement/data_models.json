@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:data_model_overworld"
+      "id": "dml-refabricated:data_model_overworld"
     },
     "title": {
       "translate": "advancements.dml-refabricated.data_models"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "dml-refabricated:attuned_data_models"
+            "items": "#dml-refabricated:attuned_data_models"
           }
         ]
       }

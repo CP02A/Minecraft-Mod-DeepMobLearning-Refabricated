@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "dml-refabricated:item/energy_octahedron",
+    "tints": [
+      {
+        "type": "dml-refabricated:battery_charge"
+      }
+    ]
+  }
+}

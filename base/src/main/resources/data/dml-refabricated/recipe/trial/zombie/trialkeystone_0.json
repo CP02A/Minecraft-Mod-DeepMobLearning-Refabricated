@@ -7,8 +7,7 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_zombie",
-      "count": 1
+      "id": "dml-refabricated:pristine_matter_zombie"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:deep_learner"
+      "id": "dml-refabricated:deep_learner"
     },
     "title": {
       "translate": "advancements.dml-refabricated.deep_learner"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:deep_learner"]
+            "items": "dml-refabricated:deep_learner"
           }
         ]
       }

@@ -6,18 +6,11 @@
     "MSM"
   ],
   "key": {
-    "D": {
-      "item": "dml-refabricated:data_model"
-    },
-    "S": {
-      "item": "minecraft:slime_ball"
-    },
-    "M": {
-      "item": "minecraft:magma_cream"
-    }
+    "D": "dml-refabricated:data_model",
+    "S": "minecraft:slime_ball",
+    "M": "minecraft:magma_cream"
   },
   "result": {
-    "item": "dml-refabricated:data_model_slimy",
-    "count": 1
+    "id": "dml-refabricated:data_model_slimy"
   }
 }

@@ -7,11 +7,11 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_ocean",
+      "id": "dml-refabricated:pristine_matter_ocean",
       "count": 8
     },
     {
-      "item": "dml-refabricated:physically_condensed_matrix_fragment",
+      "id": "dml-refabricated:physically_condensed_matrix_fragment",
       "count": 2
     }
   ]

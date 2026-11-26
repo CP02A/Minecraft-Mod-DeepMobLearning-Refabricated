@@ -6,24 +6,13 @@
     "GDG"
   ],
   "key": {
-    "P": {
-      "item": "dml-refabricated:soot_plate"
-    },
-    "G": {
-      "item": "minecraft:gold_ingot"
-    },
-    "D": {
-      "item": "minecraft:diamond_block"
-    },
-    "C": {
-      "item": "dml-refabricated:machine_casing"
-    },
-    "M": {
-      "tag": "dml-refabricated:pristine_matter"
-    }
+    "P": "dml-refabricated:soot_plate",
+    "G": "minecraft:gold_ingot",
+    "D": "minecraft:diamond_block",
+    "C": "dml-refabricated:machine_casing",
+    "M": "#dml-refabricated:pristine_matter"
   },
   "result": {
-    "item": "dml-refabricated:loot_fabricator",
-    "count": 1
+    "id": "dml-refabricated:loot_fabricator"
   }
 }

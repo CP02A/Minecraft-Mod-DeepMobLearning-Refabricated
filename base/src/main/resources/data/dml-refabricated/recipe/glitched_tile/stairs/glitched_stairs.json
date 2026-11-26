@@ -2,9 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "#": {
-      "item": "dml-refabricated:glitched_tile"
-    }
+    "#": "dml-refabricated:glitched_tile"
   },
   "pattern": [
     "#  ",
@@ -12,7 +10,7 @@
     "###"
   ],
   "result": {
-    "count": 4,
-    "item": "dml-refabricated:glitched_stairs"
+    "id": "dml-refabricated:glitched_stairs",
+    "count": 4
   }
 }

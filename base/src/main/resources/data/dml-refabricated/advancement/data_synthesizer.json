@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:data_synthesizer"
+      "id": "dml-refabricated:data_synthesizer"
     },
     "title": {
       "translate": "advancements.dml-refabricated.data_synthesizer"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:data_synthesizer"]
+            "items": "dml-refabricated:data_synthesizer"
           }
         ]
       }

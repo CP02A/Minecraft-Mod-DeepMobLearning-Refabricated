@@ -3,10 +3,5 @@
     "tick": {
       "trigger": "minecraft:tick"
     }
-  },
-  "rewards": {
-    "loot": [
-      "dml-refabricated:grant_book_on_first_join"
-    ]
   }
 }

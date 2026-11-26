@@ -2,7 +2,7 @@
 	"credit": "Made with Blockbench",
 	"textures": {
 		"material": "dml-refabricated:block/palette",
-		"glitch_heart": "dml-refabricated:item/glitch_heart",
+		"glitch_heart": "dml-refabricated:block/glitch_heart",
 		"particle": "dml-refabricated:block/machine_casing_inner"
 	},
 	"elements": [
@@ -26,7 +26,7 @@
 			"to": [15, 15, 15],
 			"rotation": {"angle": 0, "axis": "y", "origin": [9, 9, 9]},
 			"faces": {
-				"north": {"uv": [2, 0, 3, 1], "texture": "#material#material"},
+				"north": {"uv": [2, 0, 3, 1], "texture": "#material"},
 				"east": {"uv": [2, 0, 3, 1], "texture": "#material"},
 				"south": {"uv": [2, 0, 3, 1], "texture": "#material"},
 				"west": {"uv": [2, 0, 3, 1], "texture": "#material"},

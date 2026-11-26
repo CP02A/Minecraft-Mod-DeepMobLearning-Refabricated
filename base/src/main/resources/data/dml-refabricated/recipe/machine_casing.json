@@ -6,18 +6,11 @@
     "PIP"
   ],
   "key": {
-    "P": {
-      "item": "dml-refabricated:soot_plate"
-    },
-    "R": {
-      "item": "dml-refabricated:soot_redstone"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
-    }
+    "P": "dml-refabricated:soot_plate",
+    "R": "dml-refabricated:soot_redstone",
+    "I": "minecraft:iron_ingot"
   },
   "result": {
-    "item": "dml-refabricated:machine_casing",
-    "count": 1
+    "id": "dml-refabricated:machine_casing"
   }
 }

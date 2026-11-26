@@ -6,15 +6,10 @@
     " g "
   ],
   "key": {
-    "g": {
-      "item": "minecraft:gold_ingot"
-    },
-    "S": {
-      "item": "dml-refabricated:soot_redstone"
-    }
+    "g": "minecraft:gold_ingot",
+    "S": "dml-refabricated:soot_redstone"
   },
   "result": {
-    "item": "dml-refabricated:energy_octahedron",
-    "count": 1
+    "id": "dml-refabricated:energy_octahedron"
   }
 }

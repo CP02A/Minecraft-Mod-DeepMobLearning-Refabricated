@@ -4,8 +4,15 @@
   "version": "${version}",
   "name": "DML: Refabricated - Base",
   "description": "Deep Mob Learning: Refabricated's core features and systems.",
-  "authors": ["NathanPB", "Luligabi", "IterationFunk"],
-  "contributors": ["malcolmriley", "AlaskaRobotics"],
+  "authors": [
+    "NathanPB",
+    "Luligabi",
+    "IterationFunk"
+  ],
+  "contributors": [
+    "malcolmriley",
+    "AlaskaRobotics"
+  ],
   "contact": {
     "homepage": "https://www.curseforge.com/minecraft/mc-mods/deep-mob-learning-refabricated",
     "repo": "https://github.com/CafeteriaGuild/DeepMobLearning-Refabricated",
@@ -14,11 +21,22 @@
   "license": "LGPL-v3",
   "environment": "*",
   "entrypoints": {
-    "main": ["dev.nathanpb.dml.DeepMobLearningKt::init"],
-    "client": ["dev.nathanpb.dml.DeepMobLearningClientKt::initClient"],
-    "rei_client": ["dev.nathanpb.dml.compat.rei.ReiPlugin"]
+    "main": [
+      "dev.nathanpb.dml.DeepMobLearningKt::init"
+    ],
+    "client": [
+      "dev.nathanpb.dml.DeepMobLearningClientKt::initClient"
+    ],
+    "rei_client": [
+      "dev.nathanpb.dml.compat.rei.ReiPlugin"
+    ],
+    "rei_common": [
+      "dev.nathanpb.dml.compat.rei.ReiCommonPlugin"
+    ]
   },
-  "mixins": ["mixins.dml-refabricated-base.json"],
+  "mixins": [
+    "mixins.dml-refabricated-base.json"
+  ],
   "depends": {
     "dml-refabricated": "${version}"
   },

@@ -6,18 +6,11 @@
     "SES"
   ],
   "key": {
-    "D": {
-      "item": "dml-refabricated:data_model"
-    },
-    "S": {
-      "item": "minecraft:shulker_shell"
-    },
-    "E": {
-      "item": "minecraft:ender_pearl"
-    }
+    "D": "dml-refabricated:data_model",
+    "S": "minecraft:shulker_shell",
+    "E": "minecraft:ender_pearl"
   },
   "result": {
-    "item": "dml-refabricated:data_model_end",
-    "count": 1
+    "id": "dml-refabricated:data_model_end"
   }
 }

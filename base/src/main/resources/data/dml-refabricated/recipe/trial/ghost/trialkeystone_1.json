@@ -9,7 +9,7 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_ghost",
+      "id": "dml-refabricated:pristine_matter_ghost",
       "count": 2
     }
   ]

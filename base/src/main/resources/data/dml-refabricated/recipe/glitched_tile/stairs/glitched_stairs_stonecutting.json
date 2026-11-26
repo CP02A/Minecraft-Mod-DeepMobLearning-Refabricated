@@ -1,8 +1,7 @@
 {
   "type": "minecraft:stonecutting",
-  "ingredient": {
-    "item": "dml-refabricated:glitched_tile"
-  },
-  "result": "dml-refabricated:glitched_stairs",
-  "count": 1
+  "ingredient": "dml-refabricated:glitched_tile",
+  "result": {
+    "id": "dml-refabricated:glitched_stairs"
+  }
 }

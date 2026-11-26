@@ -9,7 +9,7 @@
   },
   "rewards": [
     {
-      "item": "dml-refabricated:pristine_matter_illager",
+      "id": "dml-refabricated:pristine_matter_illager",
       "count": 2
     }
   ]
