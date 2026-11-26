@@ -45,7 +45,9 @@ class RotResistanceEffect : ModularEffect<ModularEffectTriggerPayload>(
 ) {
 
     companion object {
-        private val INSTANCE = ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<RotResistanceEffect>()
+        // Lazy: the companion is initialized while the effect is constructed, before the registry contains it (it was
+        // always null in 1.20.1, so Rot Resistance never applied)
+        private val INSTANCE by lazy { ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<RotResistanceEffect>() }
 
         fun attemptToCancelHunger(player: LivingEntity, stack: ItemStack, effects: List<MobEffectInstance>): List<MobEffectInstance> {
             INSTANCE?.run {
