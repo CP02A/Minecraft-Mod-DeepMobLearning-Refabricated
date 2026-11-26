@@ -34,15 +34,15 @@ import io.github.cottonmc.cotton.gui.widget.WBar
 import io.github.cottonmc.cotton.gui.widget.WItemSlot
 import io.github.cottonmc.cotton.gui.widget.WPlainPanel
 import io.github.cottonmc.cotton.gui.widget.WSprite
-import net.minecraft.inventory.Inventory
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.world.Container
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 
 open class WEnergyComponent(
     private val energyIndex: Int,
     private val maxEnergyIndex: Int,
-    inventory: Inventory,
+    inventory: Container,
     inputIndex: Int,
     outputIndex: Int?,
     private val isPristineEnergy: Boolean = false /** do NOT use outside modular-armor! */
@@ -65,7 +65,7 @@ open class WEnergyComponent(
     constructor( // input only
         energyIndex: Int,
         maxEnergyIndex: Int,
-        inventory: Inventory,
+        inventory: Container,
         inputIndex: Int,
         isPristineEnergy: Boolean = false
     ): this(
@@ -121,9 +121,9 @@ open class WEnergyComponent(
         override fun tick() {
             this.apply {
                 withTooltip(
-                    Text.translatable(
+                    Component.translatable(
                         getShortEnergyKey(isPristineEnergy),
-                        formatAccordingToLanguage().format(properties.get(energyIndex))
+                        formatAccordingToLanguage().format(properties!!.get(energyIndex))
                     ).apply {
                         style = if(isPristineEnergy) STYLE else ENERGY_STYLE
                     }

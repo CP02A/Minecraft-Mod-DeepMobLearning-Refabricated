@@ -19,15 +19,15 @@
 
 package dev.nathanpb.dml.utils
 
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.util.math.Vec3d
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.phys.Vec3
 
-fun PacketByteBuf.writeVec3d(vec3d: Vec3d) = also {
+fun FriendlyByteBuf.writeVec3d(vec3d: Vec3) = also {
     writeDouble(vec3d.x)
     writeDouble(vec3d.y)
     writeDouble(vec3d.z)
 }
 
-fun PacketByteBuf.readVec3d() = Vec3d(
+fun FriendlyByteBuf.readVec3d() = Vec3(
     readDouble(), readDouble(), readDouble()
 )

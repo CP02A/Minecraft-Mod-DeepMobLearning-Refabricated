@@ -20,18 +20,16 @@
 
 package dev.nathanpb.dml.screen.handler.widget
 
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.entity.EntitySpawnReason
 import dev.nathanpb.dml.screen.handler.DeepLearnerScreenHandler
 import dev.nathanpb.dml.utils.drawEntity
 import io.github.cottonmc.cotton.gui.SyncedGuiDescription
 import io.github.cottonmc.cotton.gui.widget.WWidget
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.village.VillagerData
-import net.minecraft.village.VillagerDataContainer
-import net.minecraft.village.VillagerProfession
-import net.minecraft.village.VillagerType
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.LivingEntity
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -58,28 +56,27 @@ class WEntityShowcase(
 
     override fun canResize() = true
 
-    override fun paint(ctx: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    /** The entities shown, made once per type (they are never added to the level). */
+    private val entities = HashMap<EntityType<*>, LivingEntity?>()
+
+    override fun paint(ctx: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         super.paint(ctx, x, y, mouseX, mouseY)
 
         val entityType = entityType ?: return
-        val world = MinecraftClient.getInstance().world ?: return
-        val entity = entityType.create(world) as? LivingEntity ?: return
-
-        if (entity is VillagerDataContainer)
-            entity.villagerData = VillagerData(VillagerType.PLAINS, VillagerProfession.NONE, 0)
+        val world = Minecraft.getInstance().level ?: return
+        val entity = entities.getOrPut(entityType) { createShowcaseEntity(entityType, world) } ?: return
 
         val w = (this.width / 2)
         val h = (height / 1.25).roundToInt()
 
         val scaleFactor = min(w, h) * 1.5
-        val entityScaleFactor = max(entity.width, entity.height)
+        val entityScaleFactor = max(entity.bbWidth, entity.bbHeight)
 
         drawEntity(
+            ctx,
             entity,
-            x + w,
-            y + h,
+            x, y, x + width, y + height,
             (scaleFactor / entityScaleFactor).roundToInt(),
-            0, 180F,
             (tickCount % 360F) * 2F + 150F
         )
 
@@ -89,4 +86,12 @@ class WEntityShowcase(
         }
     }
 
+}
+
+/**
+ * An entity for GUIs that is never added to the level. Since 1.21.6 rendering it reads its id, which only the level
+ * assigns: it gets a fixed negative one.
+ */
+fun createShowcaseEntity(type: EntityType<*>, world: net.minecraft.world.level.Level): LivingEntity? {
+    return (type.create(world, EntitySpawnReason.LOAD) as? LivingEntity)?.also { it.id = -1000 - BuiltInRegistries.ENTITY_TYPE.getId(type) }
 }

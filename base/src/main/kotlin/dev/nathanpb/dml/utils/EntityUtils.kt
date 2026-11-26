@@ -21,42 +21,38 @@ package dev.nathanpb.dml.utils
 
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.identifier
-import dev.nathanpb.dml.mixin.LootTableInvoker
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.loot.context.LootContext
-import net.minecraft.loot.context.LootContextParameterSet
-import net.minecraft.loot.context.LootContextParameters
-import net.minecraft.loot.context.LootContextTypes
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.registry.tag.TagKey
-import net.minecraft.server.world.ServerWorld
+import net.minecraft.core.registries.Registries
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.TagKey
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.EntitySpawnReason
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.storage.loot.LootParams
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams
 
-fun EntityType<*>.simulateLootDroppedStacks(world: ServerWorld, player: PlayerEntity, source: DamageSource): List<ItemStack> {
-    val lootTable = world.server.lootManager.getLootTable(lootTableId)
-    val entity = create(world)
+/** The loot [player] would get for killing an entity of this type with [source]. */
+fun EntityType<*>.simulateLootDroppedStacks(world: ServerLevel, player: Player, source: DamageSource): List<ItemStack> {
+    val lootTableKey = defaultLootTable.orElse(null) ?: return emptyList()
+    val lootTable = world.server.reloadableRegistries().getLootTable(lootTableKey)
+    val entity = create(world, EntitySpawnReason.LOAD) ?: return emptyList()
 
-    val parameters = LootContextParameterSet.Builder(world).apply {
-        add(LootContextParameters.ORIGIN, entity?.pos)
-        add(LootContextParameters.THIS_ENTITY, entity)
-        add(LootContextParameters.DAMAGE_SOURCE, source)
+    val parameters = LootParams.Builder(world)
+        .withParameter(LootContextParams.ORIGIN, entity.position())
+        .withParameter(LootContextParams.THIS_ENTITY, entity)
+        .withParameter(LootContextParams.DAMAGE_SOURCE, source)
+        .withParameter(LootContextParams.ATTACKING_ENTITY, player)
+        .withParameter(LootContextParams.LAST_DAMAGE_PLAYER, player)
+        .create(LootContextParamSets.ENTITY)
 
-        add(LootContextParameters.KILLER_ENTITY, player)
-        add(LootContextParameters.LAST_DAMAGE_PLAYER, player)
-    }.build(LootContextTypes.ENTITY)
+    val lootList = lootTable.getRandomItems(parameters, world.random)
+    lootList.removeIf { stack: ItemStack -> !stack.isStackable && world.random.nextDouble() < baseConfig.machines.lootFabricator.unstackableNullificationChance }
 
-    val lootContext = LootContext.Builder(parameters).apply {
-        random(player.lootTableSeed)
-    }.build(null)
-
-    val lootList = (lootTable as LootTableInvoker).invokeGenerateLoot(lootContext)
-    lootList?.removeIf { stack: ItemStack -> !stack.isStackable && world.random.nextDouble() < baseConfig.machines.lootFabricator.unstackableNullificationChance }
-
-    return lootList ?: emptyList()
+    return lootList
 }
 
 fun initTag(id: String): TagKey<EntityType<*>> {
-    return TagKey.of(RegistryKeys.ENTITY_TYPE, identifier(id))
+    return TagKey.create(Registries.ENTITY_TYPE, identifier(id))
 }

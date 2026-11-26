@@ -23,10 +23,10 @@ import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.item.*
 import dev.nathanpb.dml.utils.initTag
-import net.minecraft.entity.EntityType
-import net.minecraft.item.Item
-import net.minecraft.registry.tag.TagKey
-import net.minecraft.text.Text
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.item.Item
+import net.minecraft.tags.TagKey
+import net.minecraft.network.chat.Component
 
 
 enum class EntityCategory(
@@ -102,7 +102,7 @@ enum class EntityCategory(
     );
 
 
-    val displayName: Text = Text.translatable("mobcategory.${MOD_ID}.${tagKey.id.path}")
+    val displayName: Component = Component.translatable("mobcategory.${MOD_ID}.${tagKey.location().path}")
 
 
 

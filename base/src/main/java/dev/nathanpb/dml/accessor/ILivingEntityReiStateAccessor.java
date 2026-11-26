@@ -20,6 +20,6 @@ package dev.nathanpb.dml.accessor;
  */
 
 public interface ILivingEntityReiStateAccessor {
-    boolean isDmlRefIsInReiScreen();
-    void setDmlRefInReiScreen(boolean flag);
+    boolean dml$isInReiScreen();
+    void dml$setInReiScreen(boolean flag);
 }

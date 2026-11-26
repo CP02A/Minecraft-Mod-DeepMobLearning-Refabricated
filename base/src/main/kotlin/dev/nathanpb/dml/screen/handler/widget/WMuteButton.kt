@@ -3,6 +3,7 @@ package dev.nathanpb.dml.screen.handler.widget
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.utils.RenderUtils.Companion.DML_WIDGETS
 import io.github.cottonmc.cotton.gui.widget.data.InputResult
+import net.minecraft.client.input.MouseButtonEvent
 
 abstract class WMuteButton(
     defaultIndex: Int
@@ -20,10 +21,10 @@ abstract class WMuteButton(
 
     abstract fun toggleMute()
 
-    override fun onClick(x: Int, y: Int, button: Int): InputResult {
+    override fun onClick(click: MouseButtonEvent, doubled: Boolean): InputResult {
         toggleMute()
         overlayTextureIndex = if(overlayTextureIndex == 0) 1 else 0
-        return super.onClick(x, y, button)
+        return super.onClick(click, doubled)
     }
 
 }

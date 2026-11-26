@@ -35,13 +35,14 @@ import dev.nathanpb.dml.recipe.registerRecipeTypes
 import dev.nathanpb.dml.screen.handler.registerScreenHandlers
 import dev.nathanpb.dml.trial.TrialGriefPrevention
 import dev.nathanpb.dml.trial.affix.core.TrialAffixRegistry
+import dev.nathanpb.dml.utils.RegistryAccessHolder
 import dev.nathanpb.dml.utils.initConfig
 import dev.nathanpb.dml.worldgen.registerFeatures
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import kotlin.random.Random
@@ -54,6 +55,7 @@ val baseConfig: BaseConfig = initConfig("base", BaseConfig(), BaseConfig::class.
 
 @Suppress("unused")
 fun init() {
+    RegistryAccessHolder.init()
     registerItems()
     registerBlocks()
     registerItemGroup()
@@ -78,7 +80,7 @@ fun init() {
     LOGGER.info("Deep Mob Learning: Refabricated" + quirkyStartupMessages[Random.nextInt(quirkyStartupMessages.size)])
 }
 
-fun identifier(path: String) = Identifier(MOD_ID, path)
+fun identifier(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 
 val quirkyStartupMessages = arrayOf(
     " is good to go",

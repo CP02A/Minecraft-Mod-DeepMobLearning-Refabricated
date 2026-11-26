@@ -20,6 +20,8 @@
 
 package dev.nathanpb.dml.screen.handler
 
+import dev.nathanpb.dml.utils.ListeningContainer
+import net.minecraft.world.entity.EntitySpawnReason
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.data.DataModelData
 import dev.nathanpb.dml.data.DeepLearnerData
@@ -40,18 +42,18 @@ import io.github.cottonmc.cotton.gui.widget.data.Insets
 import io.github.cottonmc.cotton.gui.widget.icon.TextureIcon
 import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.Inventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.Container
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.network.chat.Component
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
 import kotlin.properties.Delegates
 
 
@@ -62,18 +64,18 @@ import kotlin.properties.Delegates
 
 class DeepLearnerScreenHandler (
     syncId: Int,
-    playerInventory: PlayerInventory,
-    private val hand: Hand
+    playerInventory: Inventory,
+    private val hand: InteractionHand
 ): SyncedGuiDescription(
     HANDLER_DEEP_LEARNER,
     syncId,
     playerInventory,
-    SimpleInventory(4),
-    ArrayPropertyDelegate(1)
+    ListeningContainer(4),
+    SimpleContainerData(1)
 ) {
 
     val stack: ItemStack
-        get() = playerInventory.player.getStackInHand(hand)
+        get() = playerInventory.player.getItemInHand(hand)
 
     val data = DeepLearnerData(stack)
 
@@ -122,9 +124,9 @@ class DeepLearnerScreenHandler (
         update()
     }
 
-    private val prevButton: WButton = WStylizedButton(DML_WIDGETS, Text.of("<")).apply {
+    private val prevButton: WButton = WStylizedButton(DML_WIDGETS, Component.literal("<")).apply {
         if (FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
-            addTooltip(TooltipBuilder().add(Text.translatable("gui.$MOD_ID.previous")))
+            addTooltip(TooltipBuilder().add(Component.translatable("gui.$MOD_ID.previous")))
         }
 
         setOnClick {
@@ -132,9 +134,9 @@ class DeepLearnerScreenHandler (
         }
     }
 
-    private val nextButton: WButton = WStylizedButton(DML_WIDGETS, Text.of(">")).apply {
+    private val nextButton: WButton = WStylizedButton(DML_WIDGETS, Component.literal(">")).apply {
         if (FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
-            addTooltip(TooltipBuilder().add(Text.translatable("gui.${MOD_ID}.next")))
+            addTooltip(TooltipBuilder().add(Component.translatable("gui.${MOD_ID}.next")))
         }
 
         setOnClick {
@@ -145,10 +147,10 @@ class DeepLearnerScreenHandler (
     private val showcaseBackground = WSprite(identifier("textures/gui/entity_showcase_background.png"))
     private val showcase = WEntityShowcase(this)
 
-    private val entityName = WText(Text.of(""))
-    private val entityHealth = WText(Text.of(""))
-    private val dataAmount = WLabel(Text.of(""))
-    private val dataTier = WLabel(Text.of(""))
+    private val entityName = WText(Component.literal(""))
+    private val entityHealth = WText(Component.literal(""))
+    private val dataAmount = WLabel(Component.literal(""))
+    private val dataTier = WLabel(Component.literal(""))
 
 
 
@@ -169,40 +171,44 @@ class DeepLearnerScreenHandler (
         }
 
         val showcaseEntities: MutableList<EntityType<*>> = arrayListOf()
-        Registries.ENTITY_TYPE.iterateEntries(currentDataModel?.category?.tagKey).forEach {
-            showcaseEntities.add(it.value())
+        currentDataModel?.category?.tagKey?.let { tag ->
+            BuiltInRegistries.ENTITY_TYPE.getTagOrEmpty(tag).forEach {
+                showcaseEntities.add(it.value())
+            }
         }
 
         showcase.entityTypes = showcaseEntities
         if (currentDataModel == null) {
-            dataAmount.text = Text.of("")
-            dataTier.text = Text.of("")
+            dataAmount.text = Component.literal("")
+            dataTier.text = Component.literal("")
         } else if (FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
             dataAmount.text =
-                Text.translatable("tooltip.${MOD_ID}.data_amount.1").setStyle(RenderUtils.STYLE).append(
-                Text.translatable("tooltip.${MOD_ID}.data_amount.2", currentDataModel.dataAmount, currentDataModel.tier().nextTierOrCurrent().dataAmount).setStyle(RenderUtils.ALT_STYLE))
+                Component.translatable("tooltip.${MOD_ID}.data_amount.1").setStyle(RenderUtils.STYLE).append(
+                Component.translatable("tooltip.${MOD_ID}.data_amount.2", currentDataModel.dataAmount, currentDataModel.tier().nextTierOrCurrent().dataAmount).setStyle(RenderUtils.ALT_STYLE))
 
             dataTier.text =
-                Text.translatable("tooltip.${MOD_ID}.tier.1").setStyle(RenderUtils.STYLE).append(
-                Text.translatable("tooltip.${MOD_ID}.tier.2", currentDataModel.tier().text))
+                Component.translatable("tooltip.${MOD_ID}.tier.1").setStyle(RenderUtils.STYLE).append(
+                Component.translatable("tooltip.${MOD_ID}.tier.2", currentDataModel.tier().text))
         }
     }
 
     fun updateEntityInformation() {
-        if(showcase.entityType != null && FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
+        val entityType = showcase.entityType
+        if(entityType != null && FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
             entityName.text =
-                Text.translatable("tooltip.${MOD_ID}.deep_learner.entityName.1").setStyle(RenderUtils.STYLE).append(
-                Text.translatable("tooltip.${MOD_ID}.deep_learner.entityName.2", showcase.entityType!!.name).formatted(Formatting.WHITE))
+                Component.translatable("tooltip.${MOD_ID}.deep_learner.entityName.1").setStyle(RenderUtils.STYLE).append(
+                Component.translatable("tooltip.${MOD_ID}.deep_learner.entityName.2", entityType.description).withStyle(ChatFormatting.WHITE))
 
             entityHealth.text =
-                Text.translatable("tooltip.${MOD_ID}.deep_learner.entityHealth.1").setStyle(RenderUtils.STYLE).append(
-                Text.of("❤").copy().formatted(Formatting.RED)).append(
-                Text.translatable("tooltip.${MOD_ID}.deep_learner.entityHealth.2", (showcase.entityType!!.create(world) as LivingEntity).maxHealth).formatted(Formatting.WHITE))
+                Component.translatable("tooltip.${MOD_ID}.deep_learner.entityHealth.1").setStyle(RenderUtils.STYLE).append(
+                Component.literal("❤").withStyle(ChatFormatting.RED)).append(
+                Component.translatable("tooltip.${MOD_ID}.deep_learner.entityHealth.2", ((entityType.create(level, EntitySpawnReason.LOAD) as? LivingEntity)?.maxHealth ?: 0F)).withStyle(ChatFormatting.WHITE))
         }
     }
 
     init {
-        blockInventory.setStacks(data.inventory)
+        val container = blockInventory as ListeningContainer
+        container.setStacks(data.inventory)
 
         val root = WPlainPanel()
         root.insets = Insets.ROOT_PANEL
@@ -212,7 +218,7 @@ class DeepLearnerScreenHandler (
         root.add(showcase, 0, 1*18, 3*18, 4*18)
 
         root.add(
-            DataModelSlots(blockInventory).apply {
+            DataModelSlots(container).apply {
                 addChangeListener { _, inventory, index, stack ->
                     if (stack.isEmpty && index == currentSlot) {
                         currentSlot = inventory.items().mapIndexedNotNull { slotIndex, itemStack ->
@@ -236,9 +242,8 @@ class DeepLearnerScreenHandler (
             root.add(this, 2*18, 3*18, 1, 1)
         }
 
-        (blockInventory as? SimpleInventory)?.addListener {
-            data.inventory = blockInventory.items()
-            sendContentUpdates()
+        container.listener = {
+            data.inventory = it.items()
             update()
         }
 
@@ -258,7 +263,7 @@ class DeepLearnerScreenHandler (
 
 
     private class DataModelSlots(
-        inventory: Inventory
+        inventory: Container
     ): WItemSlot(inventory, 0, 2, 2, false) {
 
         init {
@@ -266,14 +271,15 @@ class DeepLearnerScreenHandler (
                 stack.item is ItemDataModel && stack.dataModel.category != null
             }
 
-            icon = TextureIcon(identifier("textures/gui/slot_background/2x2_data_model_slot_background.png"))
         }
 
-        // Hacky way to render a TextureIcon on a 2x2 slot, ignore the on-screen warnings
-        override fun paint(context: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+        // One icon for the whole 2x2 slot, painted here (LibGui only supports icons on single slots)
+        private val bigIcon = TextureIcon(identifier("textures/gui/slot_background/2x2_data_model_slot_background.png"))
+
+        override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
             backgroundPainter?.paintBackground(context, x, y, this)
 
-            icon?.paint(context, x + 1, y + 1, 34)
+            bigIcon.paint(context, x + 1, y + 1, 34)
         }
 
     }
@@ -281,15 +287,15 @@ class DeepLearnerScreenHandler (
 
     // Prevent dropping your Deep Learner while it's up, duping it and all data models inside
     class DeepLearnerPlayerInv(
-        playerInventory: PlayerInventory
+        playerInventory: Inventory
     ): WPlayerInvPanel(playerInventory) {
 
         init {
             inventory.setOutputFilter {
-                !it.isOf(ITEM_DEEP_LEARNER)
+                !it.`is`(ITEM_DEEP_LEARNER)
             }
             hotbar.setOutputFilter {
-                !it.isOf(ITEM_DEEP_LEARNER)
+                !it.`is`(ITEM_DEEP_LEARNER)
             }
         }
 

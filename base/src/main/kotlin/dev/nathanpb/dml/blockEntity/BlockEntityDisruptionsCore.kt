@@ -2,59 +2,61 @@ package dev.nathanpb.dml.blockEntity
 
 import dev.nathanpb.dml.block.BlockDisruptionsCore
 import dev.nathanpb.dml.screen.handler.DisruptionsCoreScreenHandler
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.LootableContainerBlockEntity
-import net.minecraft.block.piston.PistonBehavior
-import net.minecraft.entity.MovementType
-import net.minecraft.entity.mob.ShulkerEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.Inventories
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.Text
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.*
-import net.minecraft.world.World
-import net.minecraft.world.event.GameEvent
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.NonNullList
+import net.minecraft.network.chat.Component
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.Mth
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.entity.ContainerUser
+import net.minecraft.world.entity.MoverType
+import net.minecraft.world.entity.monster.Shulker
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.gameevent.GameEvent
+import net.minecraft.world.level.material.PushReaction
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 
+/** A shulker-box-like container that opens upwards (the animation is the shulker box's). */
 class BlockEntityDisruptionsCore(
     pos: BlockPos,
     state: BlockState
-): LootableContainerBlockEntity(BLOCKENTITY_DISRUPTIONS_CORE, pos, state) {
+): RandomizableContainerBlockEntity(BLOCKENTITY_DISRUPTIONS_CORE, pos, state) {
 
 
-    var inventory: DefaultedList<ItemStack>
+    var inventory: NonNullList<ItemStack> = NonNullList.withSize(27, ItemStack.EMPTY)
     var viewerCount = 0
-    var animationStage: AnimationStage
+    var animationStage: AnimationStage = AnimationStage.CLOSED
     var animationProgress = 0f
     var prevAnimationProgress = 0f
 
 
-    init {
-        inventory = DefaultedList.ofSize(27, ItemStack.EMPTY)
-        animationStage = AnimationStage.CLOSED
-    }
-
-
-
     companion object {
-        fun tick(world: World, pos: BlockPos, state: BlockState, blockEntity: BlockEntityDisruptionsCore) {
+        fun tick(world: Level, pos: BlockPos, state: BlockState, blockEntity: BlockEntityDisruptionsCore) {
             blockEntity.updateAnimation(world, pos, state)
         }
     }
 
 
-    fun updateAnimation(world: World, pos: BlockPos, state: BlockState) {
+    fun updateAnimation(world: Level, pos: BlockPos, state: BlockState) {
         prevAnimationProgress = animationProgress
         when(animationStage) {
             AnimationStage.CLOSED -> animationProgress = 0.0f
             AnimationStage.OPENING -> {
                 animationProgress += 0.1f
+                if(prevAnimationProgress == 0.0f) {
+                    updateNeighborStates(world, pos, state)
+                }
                 if(animationProgress >= 1.0f) {
                     animationStage = AnimationStage.OPENED
                     animationProgress = 1.0f
@@ -65,6 +67,9 @@ class BlockEntityDisruptionsCore(
 
             AnimationStage.CLOSING -> {
                 animationProgress -= 0.1f
+                if(prevAnimationProgress == 1.0f) {
+                    updateNeighborStates(world, pos, state)
+                }
                 if(animationProgress <= 0.0f) {
                     animationStage = AnimationStage.CLOSED
                     animationProgress = 0.0f
@@ -76,140 +81,106 @@ class BlockEntityDisruptionsCore(
         }
     }
 
-    fun getBoundingBox(): Box {
-        return ShulkerEntity.calculateBoundingBox(
-            Direction.UP,
-            0.5f * getAnimationProgress(1.0f)
-        )
+    /** The shape relative to the block position. */
+    fun getBoundingBox(): AABB {
+        return Shulker.getProgressAabb(1.0F, Direction.UP, 0.5f * getAnimationProgress(1.0f), Vec3(0.5, 0.0, 0.5))
     }
 
-    private fun pushEntities(world: World, pos: BlockPos, state: BlockState) {
-        if(state.block !is BlockDisruptionsCore) return;
-        val box = ShulkerEntity.calculateBoundingBox(
-            Direction.UP,
-            prevAnimationProgress,
-            animationProgress
-        ).offset(pos)
+    private fun pushEntities(world: Level, pos: BlockPos, state: BlockState) {
+        if(state.block !is BlockDisruptionsCore) return
+        val box = Shulker.getProgressDeltaAabb(1.0F, Direction.UP, prevAnimationProgress, animationProgress, Vec3.atBottomCenterOf(pos))
 
-        val list = world.getOtherEntities(null, box)
-        if(list.isEmpty()) return
-
-        for(i in list.indices) {
-            val entity = list[i]
-            if(entity.pistonBehavior != PistonBehavior.IGNORE) {
-                entity.move(
-                    MovementType.SHULKER_BOX,
-                    Vec3d(
-                        0.0,
-                        (box.yLength + 0.01),
-                        0.0
-                    )
-                )
+        for(entity in world.getEntities(null, box)) {
+            if(entity.pistonPushReaction != PushReaction.IGNORE_ENTITY) {
+                entity.move(MoverType.SHULKER_BOX, Vec3(0.0, box.ysize + 0.01, 0.0))
             }
         }
     }
 
-    override fun size(): Int {
+    override fun getContainerSize(): Int {
         return inventory.size
     }
 
-    override fun onSyncedBlockEvent(type: Int, data: Int): Boolean {
+    override fun triggerEvent(type: Int, data: Int): Boolean {
         return if(type == 1) {
             viewerCount = data
             if(data == 0) {
                 animationStage = AnimationStage.CLOSING
-                updateNeighborStates(world!!, pos, cachedState)
             }
             if(data == 1) {
                 animationStage = AnimationStage.OPENING
-                updateNeighborStates(world!!, pos, cachedState)
             }
             true
         } else {
-            super.onSyncedBlockEvent(type, data)
+            super.triggerEvent(type, data)
         }
     }
 
-    fun updateNeighborStates(world: World, pos: BlockPos, state: BlockState) {
-        state.updateNeighbors(world, pos, 3)
+    private fun updateNeighborStates(world: Level, pos: BlockPos, state: BlockState) {
+        state.updateNeighbourShapes(world, pos, 3)
+        world.updateNeighborsAt(pos, state.block)
     }
 
-    override fun onOpen(player: PlayerEntity) {
-        if(!removed && !player.isSpectator) {
+    override fun startOpen(user: ContainerUser) {
+        val world = level ?: return
+        if(!isRemoved && !user.livingEntity.isSpectator) {
             if(viewerCount < 0) {
                 viewerCount = 0
             }
             ++viewerCount
-            world!!.addSyncedBlockEvent(pos, cachedState.block, 1, viewerCount)
+            world.blockEvent(blockPos, blockState.block, 1, viewerCount)
             if(viewerCount == 1) {
-                world!!.emitGameEvent(player, GameEvent.CONTAINER_OPEN, pos)
-                world!!.playSound(
-                    null as PlayerEntity?,
-                    pos,
-                    SoundEvents.BLOCK_SHULKER_BOX_OPEN,
-                    SoundCategory.BLOCKS,
-                    0.5f,
-                    world!!.random.nextFloat() * 0.1f + 0.9f
-                )
+                world.gameEvent(user.livingEntity, GameEvent.CONTAINER_OPEN, blockPos)
+                world.playSound(null, blockPos, SoundEvents.SHULKER_BOX_OPEN, SoundSource.BLOCKS, 0.5f, world.random.nextFloat() * 0.1f + 0.9f)
             }
         }
     }
 
-    override fun onClose(player: PlayerEntity) {
-        if(!removed && !player.isSpectator) {
+    override fun stopOpen(user: ContainerUser) {
+        val world = level ?: return
+        if(!isRemoved && !user.livingEntity.isSpectator) {
             --viewerCount
-            world!!.addSyncedBlockEvent(pos, cachedState.block, 1, viewerCount)
+            world.blockEvent(blockPos, blockState.block, 1, viewerCount)
             if(viewerCount <= 0) {
-                world!!.emitGameEvent(player, GameEvent.CONTAINER_CLOSE, pos)
-                world!!.playSound(
-                    null as PlayerEntity?,
-                    pos,
-                    SoundEvents.BLOCK_SHULKER_BOX_CLOSE,
-                    SoundCategory.BLOCKS,
-                    0.5f,
-                    world!!.random.nextFloat() * 0.1f + 0.9f
-                )
+                world.gameEvent(user.livingEntity, GameEvent.CONTAINER_CLOSE, blockPos)
+                world.playSound(null, blockPos, SoundEvents.SHULKER_BOX_CLOSE, SoundSource.BLOCKS, 0.5f, world.random.nextFloat() * 0.1f + 0.9f)
             }
         }
     }
 
-    override fun getContainerName(): Text {
-        return Text.empty()
+    override fun getDefaultName(): Component {
+        return Component.empty()
     }
 
-    override fun readNbt(nbt: NbtCompound) {
-        super.readNbt(nbt)
-        readInventoryNbt(nbt)
-    }
-
-    override fun writeNbt(nbt: NbtCompound?) {
-        super.writeNbt(nbt)
-        if(!serializeLootTable(nbt)) {
-            Inventories.writeNbt(nbt, inventory, false)
+    override fun loadAdditional(input: ValueInput) {
+        super.loadAdditional(input)
+        inventory = NonNullList.withSize(containerSize, ItemStack.EMPTY)
+        if(!tryLoadLootTable(input)) {
+            ContainerHelper.loadAllItems(input, inventory)
         }
     }
 
-    fun readInventoryNbt(nbt: NbtCompound) {
-        inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY)
-        if(!deserializeLootTable(nbt) && nbt.contains("Items", 9)) {
-            Inventories.readNbt(nbt, inventory)
+    override fun saveAdditional(output: ValueOutput) {
+        super.saveAdditional(output)
+        if(!trySaveLootTable(output)) {
+            ContainerHelper.saveAllItems(output, inventory, false)
         }
     }
 
-    override fun getInvStackList(): DefaultedList<ItemStack> {
+    override fun getItems(): NonNullList<ItemStack> {
         return inventory
     }
 
-    override fun setInvStackList(list: DefaultedList<ItemStack>) {
+    override fun setItems(list: NonNullList<ItemStack>) {
         inventory = list
     }
 
     fun getAnimationProgress(delta: Float): Float {
-        return MathHelper.lerp(delta, prevAnimationProgress, animationProgress)
+        return Mth.lerp(delta, prevAnimationProgress, animationProgress)
     }
 
-    override fun createScreenHandler(syncId: Int, playerInventory: PlayerInventory): ScreenHandler {
-        return DisruptionsCoreScreenHandler(syncId, playerInventory, ScreenHandlerContext.create(world, pos))
+    override fun createMenu(syncId: Int, playerInventory: Inventory): AbstractContainerMenu {
+        return DisruptionsCoreScreenHandler(syncId, playerInventory, ContainerLevelAccess.create(level!!, blockPos))
     }
 
     fun suffocates(): Boolean {

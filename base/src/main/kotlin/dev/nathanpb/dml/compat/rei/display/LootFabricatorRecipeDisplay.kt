@@ -19,24 +19,48 @@
 
 package dev.nathanpb.dml.compat.rei.display
 
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import com.mojang.serialization.codecs.RecordCodecBuilder
+import dev.nathanpb.dml.compat.rei.ReiCategories
 import dev.nathanpb.dml.recipe.LootFabricatorRecipe
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
 import me.shedaniel.rei.api.common.display.Display
+import me.shedaniel.rei.api.common.display.DisplaySerializer
 import me.shedaniel.rei.api.common.entry.EntryIngredient
-import me.shedaniel.rei.api.common.util.EntryStacks
+import me.shedaniel.rei.api.common.util.EntryIngredients
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.resources.Identifier
+import java.util.Optional
 
 class LootFabricatorRecipeDisplay (
-    val recipe: LootFabricatorRecipe
+    val recipe: LootFabricatorRecipe,
+    val id: Identifier
 ) : Display {
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<LootFabricatorRecipeDisplay> = ReiPlugin.LOOT_FABRICATOR_CATEGORY
+    override fun getCategoryIdentifier(): CategoryIdentifier<LootFabricatorRecipeDisplay> = ReiCategories.LOOT_FABRICATOR_CATEGORY
 
-    override fun getInputEntries() = recipe.input.matchingStacks
-        .map(EntryStacks::of)
-        .map(EntryIngredient::of)
-        .toMutableList()
+    override fun getInputEntries(): List<EntryIngredient> = recipe.input.items().toList().map {
+        EntryIngredients.of(it.value())
+    }
 
-    override fun getOutputEntries() = mutableListOf<EntryIngredient>()
+    override fun getOutputEntries() = listOf<EntryIngredient>()
 
+    override fun getDisplayLocation(): Optional<Identifier> = Optional.of(id)
+
+    override fun getSerializer() = SERIALIZER
+
+    companion object {
+        val SERIALIZER: DisplaySerializer<LootFabricatorRecipeDisplay> = DisplaySerializer.of(
+            RecordCodecBuilder.mapCodec { i ->
+                i.group(
+                    LootFabricatorRecipe.CODEC.codec().fieldOf("recipe").forGetter(LootFabricatorRecipeDisplay::recipe),
+                    Identifier.CODEC.fieldOf("id").forGetter(LootFabricatorRecipeDisplay::id)
+                ).apply(i, ::LootFabricatorRecipeDisplay)
+            },
+            StreamCodec.composite(
+                LootFabricatorRecipe.STREAM_CODEC, LootFabricatorRecipeDisplay::recipe,
+                Identifier.STREAM_CODEC, LootFabricatorRecipeDisplay::id,
+                ::LootFabricatorRecipeDisplay
+            )
+        )
+    }
 }

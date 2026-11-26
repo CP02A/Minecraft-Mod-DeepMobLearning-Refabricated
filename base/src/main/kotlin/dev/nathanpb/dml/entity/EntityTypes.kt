@@ -21,15 +21,15 @@ package dev.nathanpb.dml.entity
 
 import dev.nathanpb.dml.entity.renderer.SystemGlitchRenderer
 import dev.nathanpb.dml.identifier
-import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricDefaultAttributeRegistry
-import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricEntityTypeBuilder
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry
-import net.minecraft.client.render.entity.model.EntityModelLayers
-import net.minecraft.entity.EntityDimensions
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.SpawnGroup
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
+import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricDefaultAttributeRegistry
+import net.minecraft.client.model.geom.ModelLayers
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.MobCategory
 
 lateinit var SYSTEM_GLITCH_ENTITY_TYPE: EntityType<SystemGlitchEntity>
 
@@ -38,20 +38,20 @@ private fun registerAttributes() {
 }
 
 fun registerEntityTypes() {
+    val key = ResourceKey.create(Registries.ENTITY_TYPE, identifier("system_glitch"))
     SYSTEM_GLITCH_ENTITY_TYPE = Registry.register(
-        Registries.ENTITY_TYPE,
-        identifier("system_glitch"),
-        FabricEntityTypeBuilder
-            .create(SpawnGroup.MISC, ::SystemGlitchEntity)
-            .dimensions(EntityDimensions(1F, 2F, true))
-            .build()
+        BuiltInRegistries.ENTITY_TYPE,
+        key,
+        EntityType.Builder.of(::SystemGlitchEntity, MobCategory.MISC)
+            .sized(1F, 2F)
+            .build(key)
     )
 
     registerAttributes()
 }
 
 fun registerEntityRenderer() {
-    EntityRendererRegistry.register(SYSTEM_GLITCH_ENTITY_TYPE) { dispatcher ->
-        SystemGlitchRenderer(dispatcher, EntityModelLayers.ZOMBIE)
+    EntityRendererRegistry.register(SYSTEM_GLITCH_ENTITY_TYPE) { context ->
+        SystemGlitchRenderer(context, ModelLayers.ZOMBIE)
     }
 }

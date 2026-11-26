@@ -1,33 +1,35 @@
 package dev.nathanpb.dml.misc.lootfunction
 
-import com.google.gson.JsonDeserializationContext
-import com.google.gson.JsonObject
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
 import dev.nathanpb.dml.baseConfig
-import net.minecraft.item.ItemStack
-import net.minecraft.loot.condition.LootCondition
-import net.minecraft.loot.context.LootContext
-import net.minecraft.loot.function.ConditionalLootFunction
-import net.minecraft.loot.function.LootFunctionType
+import net.minecraft.core.Holder
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.storage.loot.LootContext
+import net.minecraft.world.level.storage.loot.functions.LootItemConditionalFunction
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition
 import team.reborn.energy.api.base.SimpleEnergyItem
+import java.util.Optional
 
-class RandomEnergyLootFunction(conditions: Array<out LootCondition>): ConditionalLootFunction(conditions) {
+/** Charges an energy item to a random part of its capacity. */
+class RandomEnergyLootFunction(condition: Optional<Holder<LootItemCondition>>): LootItemConditionalFunction(condition) {
 
+    companion object {
+        val CODEC: MapCodec<RandomEnergyLootFunction> = RecordCodecBuilder.mapCodec { i ->
+            i.group(LootItemCondition.CODEC.optionalFieldOf("condition").forGetter { it.condition })
+                .apply(i, ::RandomEnergyLootFunction)
+        }
+    }
 
-    override fun process(stack: ItemStack, ctx: LootContext): ItemStack {
-        if(stack.item is SimpleEnergyItem) {
-            val capacity = (stack.item as SimpleEnergyItem).getEnergyCapacity(stack)
+    override fun run(stack: ItemStack, ctx: LootContext): ItemStack {
+        val item = stack.item
+        if(item is SimpleEnergyItem) {
+            val capacity = item.getEnergyCapacity(stack)
             val percentage = ctx.random.nextFloat().coerceIn(0F, baseConfig.misc.disruption.maxEnergyOctahedronEnergyPercentage)
-            stack.orCreateNbt.putLong(SimpleEnergyItem.ENERGY_KEY, (capacity * percentage).toLong())
+            item.setStoredEnergy(stack, (capacity * percentage).toLong())
         }
         return stack
     }
 
-    override fun getType(): LootFunctionType = RANDOM_ENERGY
-
-    class RandomEnergyLootFunctionSerializer: Serializer<RandomEnergyLootFunction>() {
-
-        override fun fromJson(json: JsonObject, context: JsonDeserializationContext, conditions: Array<out LootCondition>): RandomEnergyLootFunction {
-            return RandomEnergyLootFunction(conditions)
-        }
-    }
+    override fun codec() = CODEC
 }

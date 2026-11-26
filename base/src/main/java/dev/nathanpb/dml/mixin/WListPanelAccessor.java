@@ -7,10 +7,10 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(value = WListPanel.class, remap = false)
 public interface WListPanelAccessor {
 
-    @Accessor
-    int getLastScroll();
+    @Accessor("lastScroll")
+    int dml$getLastScroll();
 
-    @Accessor
-    void setLastScroll(int lastScroll);
+    @Accessor("lastScroll")
+    void dml$setLastScroll(int lastScroll);
 
 }

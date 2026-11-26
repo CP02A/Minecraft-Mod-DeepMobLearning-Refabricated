@@ -22,7 +22,9 @@ package dev.nathanpb.dml.screen.handler
 
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.inventory.LootFabricatorInventory.Companion.ENERGY_INPUT
-import dev.nathanpb.dml.recipe.LootFabricatorRecipe
+import dev.nathanpb.dml.item.ItemPristineMatter
+import dev.nathanpb.dml.recipe.RECIPE_LOOT_FABRICATOR
+import dev.nathanpb.dml.recipe.recipesOf
 import dev.nathanpb.dml.screen.handler.widget.WEnergyComponent
 import dev.nathanpb.dml.utils.RenderUtils
 import io.github.cottonmc.cotton.gui.SyncedGuiDescription
@@ -32,15 +34,15 @@ import io.github.cottonmc.cotton.gui.widget.WPlainPanel
 import io.github.cottonmc.cotton.gui.widget.data.HorizontalAlignment
 import io.github.cottonmc.cotton.gui.widget.data.Insets
 import io.github.cottonmc.cotton.gui.widget.icon.TextureIcon
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.screen.ScreenHandlerContext
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.inventory.ContainerLevelAccess
 
 class LootFabricatorScreenHandler(
     syncId: Int,
-    playerInventory: PlayerInventory,
-    ctx: ScreenHandlerContext
+    playerInventory: Inventory,
+    ctx: ContainerLevelAccess
 ) : SyncedGuiDescription(
     HANDLER_LOOT_FABRICATOR,
     syncId, playerInventory,
@@ -52,10 +54,14 @@ class LootFabricatorScreenHandler(
         root.insets = Insets.ROOT_PANEL
         setRootPanel(root)
 
-        val inputSlot = WItemSlot(blockInventory, 0, 1, 1, false).apply {
+        val inputSlot = WItemSlot(blockInventory!!, 0, 1, 1, false).apply {
+            // Recipes only exist on the server: the client accepts all pristine matter (the server decides)
             setInputFilter { stack ->
-                world.recipeManager.values().filterIsInstance<LootFabricatorRecipe>()
-                    .any { it.input.test(stack) }
+                if (level.isClientSide) {
+                    stack.item is ItemPristineMatter
+                } else {
+                    recipesOf(level, RECIPE_LOOT_FABRICATOR).any { it.input.test(stack) }
+                }
             }
 
             icon = TextureIcon(identifier("textures/gui/slot_background/pristine_matter_slot_background.png"))
@@ -69,23 +75,19 @@ class LootFabricatorScreenHandler(
         (0 until 9).forEach {
             val x = (it % 3)
             val y = (it / 3)
-            val slot = WItemSlot.of(blockInventory, it + 1).setInputFilter { false }
+            val slot = WItemSlot.of(blockInventory!!, it + 1).setInputFilter { false }
             root.add(slot, (x + 6) * 18, (y + 1) * 18)
         }
 
-        val energyComponent = WEnergyComponent(2, 3, blockInventory, ENERGY_INPUT)
+        val energyComponent = WEnergyComponent(2, 3, blockInventory!!, ENERGY_INPUT)
         root.add(energyComponent, 0, (1 * 18) - 6)
 
         root.add(createPlayerInventoryPanel(), 0, 5 * 18)
         setTitleAlignment(HorizontalAlignment.CENTER)
         root.validate(this)
-
-        (blockInventory as? SimpleInventory)?.addListener {
-            sendContentUpdates()
-        }
     }
 
-    override fun canUse(entity: PlayerEntity?) = true
+    override fun stillValid(player: Player) = true
 
     override fun addPainters() {
         rootPanel.backgroundPainter = RenderUtils.DEFAULT_BACKGROUND_PAINTER

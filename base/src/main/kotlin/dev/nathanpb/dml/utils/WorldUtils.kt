@@ -19,18 +19,18 @@
 
 package dev.nathanpb.dml.utils
 
-import net.minecraft.entity.Entity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.TypeFilter
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Box
-import net.minecraft.world.World
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.level.entity.EntityTypeTest
+import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.level.Level
 import java.util.*
 
-fun <T: Entity> World.getEntitiesAroundCircle(filter: TypeFilter<Entity, T>, pos: BlockPos, radius: Double) : List<T> {
+fun <T: Entity> Level.getEntitiesAroundCircle(filter: EntityTypeTest<Entity, T>, pos: BlockPos, radius: Double) : List<T> {
     val squaredRadius = radius * radius
     val pos3d = pos.toVec3d()
-    return this.getEntitiesByType(filter, Box(
+    return this.getEntities(filter, AABB(
         pos.x - radius,
         pos.y - 1.0,
         pos.z - radius,
@@ -38,10 +38,10 @@ fun <T: Entity> World.getEntitiesAroundCircle(filter: TypeFilter<Entity, T>, pos
         pos.y + radius,
         pos.z + radius
     )) {
-        it.squaredDistanceTo(pos3d) <= squaredRadius
+        it.distanceToSqr(pos3d) <= squaredRadius
     }.orEmpty()
 }
 
-fun World.getPlayersByUUID(uuids: HashSet<UUID>): List<PlayerEntity> {
-    return players.filter { it.uuid in uuids }
+fun Level.getPlayersByUUID(uuids: HashSet<UUID>): List<Player> {
+    return players().filter { it.uuid in uuids }
 }

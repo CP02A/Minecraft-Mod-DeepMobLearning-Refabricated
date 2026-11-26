@@ -25,8 +25,10 @@ import dev.nathanpb.dml.trial.Trial
 import dev.nathanpb.dml.trial.TrialState
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
 import dev.nathanpb.dml.utils.randomAround
-import net.minecraft.entity.EntityType
-import net.minecraft.util.math.Vec3d
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.EntitySpawnReason
+import net.minecraft.world.entity.EntityTypes
+import net.minecraft.world.phys.Vec3
 import kotlin.random.Random
 
 class ThunderstormAffix : TrialAffix(identifier("thunderstorm")), TrialAffix.TickableAffix {
@@ -38,11 +40,12 @@ class ThunderstormAffix : TrialAffix(identifier("thunderstorm")), TrialAffix.Tic
             val pos = trial.pos.randomAround(baseConfig.trial.arenaRadius, 0, baseConfig.trial.arenaRadius)
 
             // code copied from ServerWorld
-            EntityType.LIGHTNING_BOLT.create(trial.world)?.let { lightningEntity ->
-                val bl2 = trial.world.random.nextDouble() < trial.world.getLocalDifficulty(pos).localDifficulty * 0.01
-                lightningEntity.refreshPositionAfterTeleport(Vec3d.ofBottomCenter(pos))
-                lightningEntity.setCosmetic(bl2)
-                trial.world.spawnEntity(lightningEntity)
+            val world = trial.world as? ServerLevel ?: return
+            EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.EVENT)?.let { lightningEntity ->
+                val bl2 = world.random.nextDouble() < world.getCurrentDifficultyAt(pos).effectiveDifficulty * 0.01
+                lightningEntity.snapTo(Vec3.atBottomCenterOf(pos))
+                lightningEntity.setVisualOnly(bl2)
+                world.addFreshEntity(lightningEntity)
             }
         }
     }

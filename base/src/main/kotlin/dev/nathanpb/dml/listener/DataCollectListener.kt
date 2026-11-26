@@ -29,26 +29,27 @@ import dev.nathanpb.dml.item.ItemDeepLearner
 import dev.nathanpb.dml.utils.firstOrNullMapping
 import dev.nathanpb.dml.utils.hotbar
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents
-import net.minecraft.entity.Entity
-import net.minecraft.entity.LivingEntity
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.server.world.ServerWorld
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.damagesource.DamageSource
 
 class DataCollectListener : ServerEntityCombatEvents.AfterKilledOtherEntity {
 
-    override fun afterKilledOtherEntity(world: ServerWorld, player: Entity, entity: LivingEntity) {
-        if (player !is ServerPlayerEntity) return
+    override fun afterKilledOtherEntity(world: ServerLevel, player: Entity, entity: LivingEntity, source: DamageSource) {
+        if (player !is ServerPlayer) return
 
-        (player.inventory.hotbar() + player.offHandStack)
+        (player.inventory.hotbar() + player.offhandItem)
             .filter { it.item is ItemDeepLearner }
             .map { DeepLearnerData(it).inventory }
             .flatten()
             .filter { it.item is ItemDataModel }
             .firstOrNullMapping(
                 map = { it.dataModel },
-                accept = { entity.type.isIn(it.category?.tagKey) && !it.tier().isMaxTier() }
+                accept = { it.category?.tagKey?.let { tag -> entity.type.builtInRegistryHolder().`is`(tag) } == true && !it.tier().isMaxTier() }
             )?.let {
-                modifyDataAmount(it, player.getStackInHand(player.activeHand).isOf(ITEM_GLITCH_SWORD))
+                modifyDataAmount(it, player.mainHandItem.`is`(ITEM_GLITCH_SWORD))
             }
     }
 

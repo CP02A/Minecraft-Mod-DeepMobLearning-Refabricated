@@ -19,19 +19,24 @@
 
 package dev.nathanpb.dml.data.serializers
 
+import dev.nathanpb.dml.data.tag.DataSerializer
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
 import dev.nathanpb.dml.trial.affix.core.TrialAffixRegistry
-import dev.nathanpb.ktdatatag.serializer.AbstractNbtListSerializer
-import net.minecraft.nbt.NbtString
-import net.minecraft.util.Identifier
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.StringTag
+import net.minecraft.resources.Identifier
 
-class TrialAffixListSerializer : AbstractNbtListSerializer<TrialAffix, NbtString>(
-    NbtString.of("").type,
-    NbtString::class.java,
-    {
-        val id = Identifier(it.asString())
-        TrialAffixRegistry.INSTANCE.findById(id)
-            ?: TrialAffixRegistry.INSTANCE.all.first() // Trying to recover the error, may throw NPE anyway
-    },
-    { NbtString.of(it.id.toString()) }
-)
+/** The affixes as a list of their ids. */
+class TrialAffixListSerializer : DataSerializer<List<TrialAffix>> {
+    override fun read(tag: CompoundTag, key: String): List<TrialAffix> = tag.getListOrEmpty(key).mapNotNull { element ->
+        element.asString().flatMap { Identifier.read(it).result() }.map { id ->
+            TrialAffixRegistry.INSTANCE.findById(id)
+                ?: TrialAffixRegistry.INSTANCE.all.first() // Trying to recover the error, may throw NPE anyway
+        }.orElse(null)
+    }
+
+    override fun write(tag: CompoundTag, key: String, data: List<TrialAffix>) {
+        tag.put(key, ListTag().also { list -> data.forEach { list.add(StringTag.valueOf(it.id.toString())) } })
+    }
+}

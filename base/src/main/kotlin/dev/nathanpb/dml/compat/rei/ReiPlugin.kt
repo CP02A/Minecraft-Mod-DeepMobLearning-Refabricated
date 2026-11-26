@@ -19,79 +19,44 @@
 
 package dev.nathanpb.dml.compat.rei
 
+import dev.nathanpb.dml.utils.MODULAR_ARMOR_ID
 import dev.nathanpb.dml.block.BLOCK_LOOT_FABRICATOR
 import dev.nathanpb.dml.block.BLOCK_TRIAL_KEYSTONE
 import dev.nathanpb.dml.compat.rei.category.CrushingDisplayCategory
 import dev.nathanpb.dml.compat.rei.category.LootFabricatorDisplayCategory
 import dev.nathanpb.dml.compat.rei.category.TrialDisplayCategory
-import dev.nathanpb.dml.compat.rei.display.CrushingRecipeDisplay
-import dev.nathanpb.dml.compat.rei.display.LootFabricatorRecipeDisplay
-import dev.nathanpb.dml.compat.rei.display.TrialRecipeDisplay
-import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.item.ITEM_DML
 import dev.nathanpb.dml.item.ITEM_EMERITUS_HAT
 import dev.nathanpb.dml.item.ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE
-import dev.nathanpb.dml.recipe.CrushingRecipe
-import dev.nathanpb.dml.recipe.LootFabricatorRecipe
-import dev.nathanpb.dml.recipe.TrialKeystoneRecipe
-import dev.nathanpb.dml.utils.MODULAR_ARMOR_ID
 import dev.nathanpb.dml.utils.isModLoaded
+import me.shedaniel.rei.api.client.entry.filtering.base.BasicFilteringRule
 import me.shedaniel.rei.api.client.plugins.REIClientPlugin
 import me.shedaniel.rei.api.client.registry.category.CategoryRegistry
-import me.shedaniel.rei.api.client.registry.display.DisplayRegistry
-import me.shedaniel.rei.api.client.registry.entry.EntryRegistry
-import me.shedaniel.rei.api.common.category.CategoryIdentifier
-import me.shedaniel.rei.api.common.plugins.PluginManager
-import me.shedaniel.rei.api.common.registry.ReloadStage
+import me.shedaniel.rei.api.common.entry.EntryStack
 import me.shedaniel.rei.api.common.util.EntryStacks
 
-
-@Suppress("unused")
+/** The categories; the displays come from the server (see [ReiCommonPlugin]). */
 class ReiPlugin :  REIClientPlugin {
-
-    companion object {
-        val CRUSHING_CATEGORY: CategoryIdentifier<CrushingRecipeDisplay> = CategoryIdentifier.of(identifier("crushing"))
-        val TRIAL_CATEGORY: CategoryIdentifier<TrialRecipeDisplay> = CategoryIdentifier.of(identifier("trial"))
-        val LOOT_FABRICATOR_CATEGORY: CategoryIdentifier<LootFabricatorRecipeDisplay> = CategoryIdentifier.of(identifier("loot_fabricator"))
-
-    }
-
 
     override fun registerCategories(registry: CategoryRegistry) {
         registry.add(CrushingDisplayCategory())
         //registry.addWorkstations(CRUSHING_CATEGORY, EntryStacks.of(ITEM_SOOT_REDSTONE))
 
         registry.add(TrialDisplayCategory())
-        registry.addWorkstations(TRIAL_CATEGORY, EntryStacks.of(BLOCK_TRIAL_KEYSTONE))
+        registry.addWorkstations(ReiCategories.TRIAL_CATEGORY, EntryStacks.of(BLOCK_TRIAL_KEYSTONE))
 
         registry.add(LootFabricatorDisplayCategory())
-        registry.addWorkstations(LOOT_FABRICATOR_CATEGORY, EntryStacks.of(BLOCK_LOOT_FABRICATOR))
+        registry.addWorkstations(ReiCategories.LOOT_FABRICATOR_CATEGORY, EntryStacks.of(BLOCK_LOOT_FABRICATOR))
     }
 
-    override fun registerDisplays(registry: DisplayRegistry){
-        registry.registerFiller(CrushingRecipe::class.java) {
-            CrushingRecipeDisplay(it)
-        }
-
-        registry.registerFiller(TrialKeystoneRecipe::class.java){
-            TrialRecipeDisplay(it)
-        }
-
-        registry.registerFiller(LootFabricatorRecipe::class.java) {
-            LootFabricatorRecipeDisplay(it)
-        }
-    }
-
-    override fun postStage(manager: PluginManager<REIClientPlugin>?, stage: ReloadStage?) {
-        val hiddenItems = listOf(ITEM_EMERITUS_HAT, ITEM_DML)
-        EntryRegistry.getInstance().removeEntryIf {
-            it.itemStack().item in hiddenItems
-        }
+    override fun registerBasicEntryFiltering(rule: BasicFilteringRule<*>) {
+        val hidden = mutableListOf<EntryStack<*>>(EntryStacks.of(ITEM_EMERITUS_HAT), EntryStacks.of(ITEM_DML))
 
         // Glitch Upgrade Smithing Template is only used for Glitch Armor - hide if not present
-        EntryRegistry.getInstance().removeEntryIf {
-            it.itemStack().isOf(ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE) && !isModLoaded(MODULAR_ARMOR_ID)
+        if (!isModLoaded(MODULAR_ARMOR_ID)) {
+            hidden += EntryStacks.of(ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE)
         }
+        rule.hide { hidden }
     }
 
 }

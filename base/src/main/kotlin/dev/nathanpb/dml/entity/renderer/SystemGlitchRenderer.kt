@@ -22,20 +22,26 @@ package dev.nathanpb.dml.entity.renderer
 import dev.nathanpb.dml.entity.SystemGlitchEntity
 import dev.nathanpb.dml.entity.model.SystemGlitchModel
 import dev.nathanpb.dml.identifier
-import net.minecraft.client.render.entity.EntityRendererFactory
-import net.minecraft.client.render.entity.MobEntityRenderer
-import net.minecraft.client.render.entity.feature.HeadFeatureRenderer
-import net.minecraft.client.render.entity.model.EntityModelLayer
+import net.minecraft.client.model.geom.ModelLayerLocation
+import net.minecraft.client.renderer.entity.EntityRendererProvider
+import net.minecraft.client.renderer.entity.HumanoidMobRenderer
+import net.minecraft.client.renderer.entity.layers.CustomHeadLayer
+import net.minecraft.client.renderer.entity.state.HumanoidRenderState
+import net.minecraft.resources.Identifier
 
-class SystemGlitchRenderer(context: EntityRendererFactory.Context, layer: EntityModelLayer) :
-    MobEntityRenderer<SystemGlitchEntity, SystemGlitchModel>(
-        context, SystemGlitchModel(context.getPart(layer)), 0.5F
+/** A zombie-shaped mob; wearables on its head (the Emeritus Hat) are a bit bigger than on a zombie. */
+class SystemGlitchRenderer(context: EntityRendererProvider.Context, layer: ModelLayerLocation) :
+    HumanoidMobRenderer<SystemGlitchEntity, HumanoidRenderState, SystemGlitchModel>(
+        context,
+        SystemGlitchModel(context.bakeLayer(layer)),
+        SystemGlitchModel(context.bakeLayer(layer)),
+        0.5F,
+        CustomHeadLayer.Transforms(0F, 0F, 1.15F, 1.05F)
     )
 {
+    private val texture = identifier("textures/entity/system_glitch.png")
 
-    override fun getTexture(entity: SystemGlitchEntity) = identifier("textures/entity/system_glitch.png")
+    override fun createRenderState() = HumanoidRenderState()
 
-    init {
-        addFeature(HeadFeatureRenderer(this, context.modelLoader, 1.15F, 1.05F, 1.15F, null))
-    }
+    override fun getTextureLocation(state: HumanoidRenderState): Identifier = texture
 }

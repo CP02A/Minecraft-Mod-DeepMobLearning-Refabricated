@@ -1,17 +1,17 @@
 package dev.nathanpb.dml.event
 
-import net.minecraft.entity.Entity
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.mob.EndermanEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.util.ActionResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Vec3d
-import net.minecraft.world.World
-import net.minecraft.world.explosion.Explosion
-import net.minecraft.world.explosion.ExplosionBehavior
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.monster.Enderman
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.InteractionResult
+import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.Explosion
+import net.minecraft.world.level.ExplosionDamageCalculator
 
 object VanillaEvents {
     data class LivingEntityDamageContext(val entity: LivingEntity, val source: DamageSource, val damage: Float)
@@ -24,8 +24,8 @@ object VanillaEvents {
         }
     }
 
-    // Doing it just with PlayerEntity to prevent server overload
-    val PlayerEntityTickEvent = event<(PlayerEntity)->Unit> { listeners ->
+    // Doing it just with Player to prevent server overload
+    val PlayerEntityTickEvent = event<(Player)->Unit> { listeners ->
         { entity ->
             listeners.forEach {
                 it(entity)
@@ -33,7 +33,7 @@ object VanillaEvents {
         }
     }
 
-    val PlayerTakeHungerEvent = event<(PlayerEntity, Int)->Int> { listeners ->
+    val PlayerTakeHungerEvent = event<(Player, Int)->Int> { listeners ->
         { player, amount ->
             listeners.toList().fold(amount) { acc, function ->
                 if (acc > 0) {
@@ -67,20 +67,20 @@ object VanillaEvents {
         }
     }
 
-    val EndermanTeleportEvent = event<(EndermanEntity, Vec3d)-> ActionResult> { listeners ->
+    val EndermanTeleportEvent = event<(Enderman, Vec3)-> InteractionResult> { listeners ->
         { entity, pos ->
-            val shouldFail = listeners.any { it.invoke(entity, pos) == ActionResult.FAIL }
-            if (shouldFail) ActionResult.FAIL else ActionResult.PASS
+            val shouldFail = listeners.any { it.invoke(entity, pos) == InteractionResult.FAIL }
+            if (shouldFail) InteractionResult.FAIL else InteractionResult.PASS
         }
     }
 
-    val WorldExplosionEvent = event<(World, Entity?, DamageSource?, behavior: ExplosionBehavior?, pos: BlockPos, power: Float, createFire: Boolean, World.ExplosionSourceType)-> ActionResult> { listeners ->
+    val WorldExplosionEvent = event<(Level, Entity?, DamageSource?, behavior: ExplosionDamageCalculator?, pos: BlockPos, power: Float, createFire: Boolean, Level.ExplosionInteraction)-> InteractionResult> { listeners ->
         { world, entity, damageSource, behavior, pos, power, createFire, destructionType ->
             val shouldFail = listeners.any {
-                it.invoke(world, entity, damageSource, behavior, pos, power, createFire, destructionType) == ActionResult.FAIL
+                it.invoke(world, entity, damageSource, behavior, pos, power, createFire, destructionType) == InteractionResult.FAIL
             }
 
-            if (shouldFail) ActionResult.FAIL else ActionResult.PASS
+            if (shouldFail) InteractionResult.FAIL else InteractionResult.PASS
         }
     }
 }

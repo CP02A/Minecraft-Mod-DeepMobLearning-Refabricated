@@ -20,14 +20,14 @@
 package dev.nathanpb.dml.misc
 
 import dev.nathanpb.dml.identifier
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.sound.SoundEvent
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.sounds.SoundEvent
 
 val DATA_SYNTHESIZER_PROCESS = registerSound("data_synthesizer_process")
 
 private fun registerSound(id: String): SoundEvent {
-    return Registry.register(Registries.SOUND_EVENT, identifier(id), SoundEvent.of(identifier(id)))
+    return Registry.register(BuiltInRegistries.SOUND_EVENT, identifier(id), SoundEvent.createVariableRangeEvent(identifier(id)))
 }
 
 fun registerSounds() {

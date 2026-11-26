@@ -22,50 +22,44 @@ package dev.nathanpb.dml.item
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.data.trialKeyData
 import dev.nathanpb.dml.utils.RenderUtils
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.world.World
+import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.Component
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.item.component.TooltipDisplay
+import java.util.function.Consumer
 
-class ItemTrialKey : Item(FabricItemSettings().maxCount(1).fireproof()) {
-    override fun appendTooltip(
-        stack: ItemStack?,
-        world: World?,
-        tooltip: MutableList<Text>?,
-        context: TooltipContext?
+class ItemTrialKey(properties: Properties) : Item(properties.stacksTo(1).fireResistant()) {
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        display: TooltipDisplay,
+        tooltip: Consumer<Component>,
+        flag: TooltipFlag
     ) {
-        if (stack != null && tooltip != null && world != null) {
-            stack.trialKeyData.also { data ->
-                if (data != null) {
-                    Text.translatable("tooltip.${MOD_ID}.data_model.bound_to.1").setStyle(RenderUtils.STYLE).append(
-                    Text.translatable("tooltip.${MOD_ID}.data_model.bound_to.2", data.category.displayName).setStyle(RenderUtils.ALT_STYLE)
-                    ).let {
-                        tooltip.add(it)
-                    }
-                    Text.translatable("tooltip.${MOD_ID}.tier.1").setStyle(RenderUtils.STYLE).append(
-                    Text.translatable("tooltip.${MOD_ID}.tier.2", data.tier().text)
-                    ).let {
-                        tooltip.add(it)
-                    }
+        val data = stack.trialKeyData
+        if (data != null) {
+            tooltip.accept(
+                Component.translatable("tooltip.${MOD_ID}.data_model.bound_to.1").setStyle(RenderUtils.STYLE).append(
+                    Component.translatable("tooltip.${MOD_ID}.data_model.bound_to.2", data.category.displayName).setStyle(RenderUtils.ALT_STYLE)
+                )
+            )
+            tooltip.accept(
+                Component.translatable("tooltip.${MOD_ID}.tier.1").setStyle(RenderUtils.STYLE).append(
+                    Component.translatable("tooltip.${MOD_ID}.tier.2", data.tier().text)
+                )
+            )
 
-                    if (data.affixes.isNotEmpty()) {
-                        Text.translatable("tooltip.${MOD_ID}.trial_key.affixes").setStyle(RenderUtils.STYLE).let {
-                            tooltip.add(it)
-                        }
-                        data.affixes.forEach {
-                            tooltip.add(Text.of(" - ").copy().append(it.name))
-                        }
-                    }
-                } else {
-                    tooltip.add(Text.translatable("tooltip.${MOD_ID}.data_model.unbound").formatted(Formatting.DARK_RED))
-                    Text.translatable("tooltip.${MOD_ID}.trial_key.unbound.tip").setStyle(RenderUtils.STYLE).let {
-                        tooltip.add(it)
-                    }
+            if (data.affixes.isNotEmpty()) {
+                tooltip.accept(Component.translatable("tooltip.${MOD_ID}.trial_key.affixes").setStyle(RenderUtils.STYLE))
+                data.affixes.forEach {
+                    tooltip.accept(Component.literal(" - ").append(it.name))
                 }
             }
+        } else {
+            tooltip.accept(Component.translatable("tooltip.${MOD_ID}.data_model.unbound").withStyle(ChatFormatting.DARK_RED))
+            tooltip.accept(Component.translatable("tooltip.${MOD_ID}.trial_key.unbound.tip").setStyle(RenderUtils.STYLE))
         }
     }
 }

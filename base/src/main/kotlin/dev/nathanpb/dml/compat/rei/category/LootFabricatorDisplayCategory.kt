@@ -19,37 +19,60 @@
 
 package dev.nathanpb.dml.compat.rei.category
 
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.world.entity.EntitySpawnReason
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import dev.nathanpb.dml.MOD_ID
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import dev.nathanpb.dml.block.BLOCK_LOOT_FABRICATOR
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import dev.nathanpb.dml.compat.rei.ReiCategories
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import dev.nathanpb.dml.compat.rei.display.LootFabricatorRecipeDisplay
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import dev.nathanpb.dml.compat.rei.widgets.EntityDisplayWidget
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.math.Point
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.math.Rectangle
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.client.gui.widgets.Widget
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.client.gui.widgets.Widgets
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.client.registry.display.DisplayCategory
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.common.entry.EntryStack
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
 import me.shedaniel.rei.api.common.util.EntryStacks
-import net.minecraft.client.MinecraftClient
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.client.Minecraft
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.world.entity.EntityType
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.world.entity.LivingEntity
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.world.item.ItemStack
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.core.registries.BuiltInRegistries
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.network.chat.MutableComponent
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.network.chat.Component
+import dev.nathanpb.dml.screen.handler.widget.createShowcaseEntity
+import net.minecraft.resources.Identifier
 
 class LootFabricatorDisplayCategory: DisplayCategory<LootFabricatorRecipeDisplay> {
 
-    override fun getIdentifier(): Identifier = ReiPlugin.LOOT_FABRICATOR_CATEGORY.identifier
+    override fun getIdentifier(): Identifier = ReiCategories.LOOT_FABRICATOR_CATEGORY.identifier
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<out LootFabricatorRecipeDisplay> = ReiPlugin.LOOT_FABRICATOR_CATEGORY
+    override fun getCategoryIdentifier(): CategoryIdentifier<out LootFabricatorRecipeDisplay> = ReiCategories.LOOT_FABRICATOR_CATEGORY
 
     override fun getIcon(): EntryStack<ItemStack> = EntryStacks.of(BLOCK_LOOT_FABRICATOR)
 
-    override fun getTitle(): MutableText = Text.translatable("rei.$MOD_ID.category.loot_fabricator")
+    override fun getTitle(): MutableComponent = Component.translatable("rei.$MOD_ID.category.loot_fabricator")
 
 
     override fun setupDisplay(recipeDisplay: LootFabricatorRecipeDisplay, bounds: Rectangle): MutableList<Widget> {
@@ -57,7 +80,7 @@ class LootFabricatorDisplayCategory: DisplayCategory<LootFabricatorRecipeDisplay
         val centerY = bounds.centerY - 8
 
         val entities: MutableList<EntityType<*>> = arrayListOf()
-        Registries.ENTITY_TYPE.iterateEntries(recipeDisplay.recipe.category.tagKey).forEach {
+        BuiltInRegistries.ENTITY_TYPE.getTagOrEmpty(recipeDisplay.recipe.category.tagKey).forEach {
             entities.add(it.value())
         }
 
@@ -66,9 +89,9 @@ class LootFabricatorDisplayCategory: DisplayCategory<LootFabricatorRecipeDisplay
             Widgets.createSlot(Point(centerX - 40, centerY)).entries(recipeDisplay.inputEntries.flatten()),
             Widgets.createArrow(Point(centerX - 10, centerY))
         ).also { widgets ->
-            MinecraftClient.getInstance().player?.let { player ->
+            Minecraft.getInstance().player?.let { player ->
                 widgets += Widgets.wrapVanillaWidget(EntityDisplayWidget(
-                    entities.mapNotNull { it.create(player.world) as? LivingEntity },
+                    entities.mapNotNull { createShowcaseEntity(it, player.level()) },
                     centerX + 40,
                     centerY + 30,
                     0F, 0F, 24

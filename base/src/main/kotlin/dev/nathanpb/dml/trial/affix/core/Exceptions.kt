@@ -8,6 +8,6 @@
 
 package dev.nathanpb.dml.trial.affix.core
 
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 
 class DuplicatedRegistryException(id: Identifier) : Exception("The Affix ID $id is already registered")

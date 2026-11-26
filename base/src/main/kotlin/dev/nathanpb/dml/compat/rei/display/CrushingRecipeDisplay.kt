@@ -19,27 +19,52 @@
 
 package dev.nathanpb.dml.compat.rei.display
 
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import com.mojang.serialization.codecs.RecordCodecBuilder
+import dev.nathanpb.dml.compat.rei.ReiCategories
 import dev.nathanpb.dml.recipe.CrushingRecipe
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
 import me.shedaniel.rei.api.common.display.Display
+import me.shedaniel.rei.api.common.display.DisplaySerializer
 import me.shedaniel.rei.api.common.entry.EntryIngredient
 import me.shedaniel.rei.api.common.util.EntryIngredients
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.resources.Identifier
+import java.util.Optional
 
+/** Since 1.21.2 the server makes the displays and sends them to the clients (which have no recipes). */
 class CrushingRecipeDisplay(
-    private val recipe: CrushingRecipe
+    val recipe: CrushingRecipe,
+    val id: Identifier
 ) : Display {
 
+    override fun getCategoryIdentifier(): CategoryIdentifier<CrushingRecipeDisplay> = ReiCategories.CRUSHING_CATEGORY
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<CrushingRecipeDisplay> = ReiPlugin.CRUSHING_CATEGORY
-
-    override fun getInputEntries(): MutableList<EntryIngredient> {
-        return (
-            recipe.input.matchingStacks.map(EntryIngredients::of)
-                + arrayOf(EntryIngredients.of(recipe.block))
-        ).toMutableList()
+    override fun getInputEntries(): List<EntryIngredient> {
+        return listOf(
+            EntryIngredients.ofIngredient(recipe.input),
+            EntryIngredients.of(recipe.block)
+        )
     }
 
-    override fun getOutputEntries() = mutableListOf(EntryIngredients.of(recipe.output))
+    override fun getOutputEntries(): List<EntryIngredient> = listOf(EntryIngredients.of(recipe.output.create()))
 
+    override fun getDisplayLocation(): Optional<Identifier> = Optional.of(id)
+
+    override fun getSerializer() = SERIALIZER
+
+    companion object {
+        val SERIALIZER: DisplaySerializer<CrushingRecipeDisplay> = DisplaySerializer.of(
+            RecordCodecBuilder.mapCodec { i ->
+                i.group(
+                    CrushingRecipe.CODEC.codec().fieldOf("recipe").forGetter(CrushingRecipeDisplay::recipe),
+                    Identifier.CODEC.fieldOf("id").forGetter(CrushingRecipeDisplay::id)
+                ).apply(i, ::CrushingRecipeDisplay)
+            },
+            StreamCodec.composite(
+                CrushingRecipe.STREAM_CODEC, CrushingRecipeDisplay::recipe,
+                Identifier.STREAM_CODEC, CrushingRecipeDisplay::id,
+                ::CrushingRecipeDisplay
+            )
+        )
+    }
 }

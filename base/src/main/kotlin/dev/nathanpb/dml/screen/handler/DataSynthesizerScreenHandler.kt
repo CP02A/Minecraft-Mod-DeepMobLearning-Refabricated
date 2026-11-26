@@ -20,6 +20,7 @@
 
 package dev.nathanpb.dml.screen.handler
 
+import net.minecraft.core.BlockPos
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.blockEntity.BlockEntityDataSynthesizer
 import dev.nathanpb.dml.data.dataModel
@@ -32,7 +33,9 @@ import dev.nathanpb.dml.screen.handler.widget.WMuteButton
 import dev.nathanpb.dml.utils.RenderUtils
 import io.github.cottonmc.cotton.gui.SyncedGuiDescription
 import io.github.cottonmc.cotton.gui.networking.NetworkSide
+import io.github.cottonmc.cotton.gui.networking.ScreenMessageKey
 import io.github.cottonmc.cotton.gui.networking.ScreenNetworking
+import com.mojang.serialization.Codec
 import io.github.cottonmc.cotton.gui.widget.WItemSlot
 import io.github.cottonmc.cotton.gui.widget.WPlainPanel
 import io.github.cottonmc.cotton.gui.widget.WSprite
@@ -40,21 +43,21 @@ import io.github.cottonmc.cotton.gui.widget.data.HorizontalAlignment
 import io.github.cottonmc.cotton.gui.widget.data.Insets
 import io.github.cottonmc.cotton.gui.widget.data.Texture
 import io.github.cottonmc.cotton.gui.widget.icon.TextureIcon
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.util.math.MathHelper
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.network.chat.Component
+import net.minecraft.ChatFormatting
+import net.minecraft.util.Mth
 
 
 class DataSynthesizerScreenHandler(
     syncId: Int,
-    playerInventory: PlayerInventory,
-    val ctx: ScreenHandlerContext
+    playerInventory: Inventory,
+    val ctx: ContainerLevelAccess
 ) : SyncedGuiDescription(
     HANDLER_DATA_SYNTHESIZER,
     syncId, playerInventory,
@@ -63,16 +66,17 @@ class DataSynthesizerScreenHandler(
 ) {
     init {
         val MUTE_TOGGLE_ID = identifier("data_synthesizer_mute_toggle")
-        val blockPos = ctx.get { _, pos -> { pos }}.get().invoke()
+        val blockPos = ctx.evaluate { _, pos -> pos }.orElse(BlockPos.ZERO)
 
+        val muteToggle = ScreenMessageKey(MUTE_TOGGLE_ID, Codec.BOOL)
         ScreenNetworking.of(
             this,
             NetworkSide.SERVER
-        ).receive(MUTE_TOGGLE_ID) { _ ->
-            val blockEntity = world.getBlockEntity(blockPos)
+        ).receive(muteToggle) { _ ->
+            val blockEntity = level.getBlockEntity(blockPos)
             if(blockEntity is BlockEntityDataSynthesizer) {
                 blockEntity.mute = !blockEntity.mute
-                blockEntity.markDirty()
+                blockEntity.setChanged()
                 blockEntity.sync()
             }
         }
@@ -84,13 +88,13 @@ class DataSynthesizerScreenHandler(
         val simulatedDataBubble = WInfoBubbleWidget(
             WARNING_BUBBLE,
             listOf(
-                Text.translatable("text.dml-refabricated.simulated_data.warning").formatted(Formatting.DARK_RED)
+                Component.translatable("text.dml-refabricated.simulated_data.warning").withStyle(ChatFormatting.DARK_RED)
             ),
             true
         )
         root.add(simulatedDataBubble, (5 * 18) + 1, (2 * 18) + 6, 8, 8)
 
-        val dataModelSlot = WItemSlot.of(blockInventory, 0, 1, 1).apply {
+        val dataModelSlot = WItemSlot.of(blockInventory!!, 0, 1, 1).apply {
             setInputFilter { stack ->
                 stack.item is ItemDataModel
             }
@@ -110,13 +114,13 @@ class DataSynthesizerScreenHandler(
         val progressLine = WProgressLine((2 * 18) + 14)
         root.add(progressLine, (4 * 18) + 1, progressLine.initialY + 7, 16, 1)
 
-        val energyComponent = object : WEnergyComponent(0, 1, blockInventory, 1, 2) {
+        val energyComponent = object : WEnergyComponent(0, 1, blockInventory!!, 1, 2) {
 
             override fun tick() {
                 super.tick()
 
-                val energyProperties = ArrayPropertyDelegate(2)
-                val blockEntity = world.getBlockEntity(blockPos)
+                val energyProperties = SimpleContainerData(2)
+                val blockEntity = level.getBlockEntity(blockPos)
                 if(blockEntity is BlockEntityDataSynthesizer) {
                     energyProperties[0] = blockEntity.energyStorage.amount.toInt()
                     energyProperties[1] = blockEntity.energyCapacity.toInt()
@@ -127,12 +131,12 @@ class DataSynthesizerScreenHandler(
 
         root.add(energyComponent, 0, (1 * 18) - 6)
 
-        val soundButton = object : WMuteButton(propertyDelegate[3]) {
+        val soundButton = object : WMuteButton(containerData!!.get(3)) {
             override fun toggleMute() {
                 ScreenNetworking.of(
                     this@DataSynthesizerScreenHandler,
                     NetworkSide.CLIENT
-                ).send(MUTE_TOGGLE_ID) { _ -> }
+                ).send(muteToggle, true)
 
             }
         }
@@ -141,13 +145,9 @@ class DataSynthesizerScreenHandler(
         root.add(createPlayerInventoryPanel(), 0, (5 * 18) + 2)
         setTitleAlignment(HorizontalAlignment.CENTER)
         root.validate(this)
-
-        (blockInventory as? SimpleInventory)?.addListener {
-            sendContentUpdates()
-        }
     }
 
-    override fun canUse(entity: PlayerEntity?) = true
+    override fun stillValid(player: Player) = true
 
     override fun addPainters() {
         rootPanel.backgroundPainter = RenderUtils.DEFAULT_BACKGROUND_PAINTER
@@ -167,15 +167,15 @@ class DataSynthesizerScreenHandler(
         private val areaSize = 15F
 
         override fun tick() {
-            if(host!!.propertyDelegate!!.get(2) == 0) { // canProgress
+            if(host!!.containerData!!.get(2) == 0) { // canProgress
                 hidden = true
                 return
             }
             hidden = false
 
 
-            val percentage = MathHelper.clamp(
-                host!!.propertyDelegate!!.get(0).toFloat() / host!!.propertyDelegate!!.get(1).toFloat(),
+            val percentage = Mth.clamp(
+                host!!.containerData!!.get(0).toFloat() / host!!.containerData!!.get(1).toFloat(),
                 0F,
                 1F
             )
@@ -188,13 +188,10 @@ class DataSynthesizerScreenHandler(
 
         }
 
-        override fun paint(context: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+        override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
             if(hidden) return
 
-            context.matrices.push()
-            context.matrices.translate(0F, 0F, 400F)
             super.paint(context, x, y, mouseX, mouseY)
-            context.matrices.pop()
         }
     }
 

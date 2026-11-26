@@ -22,6 +22,6 @@ package dev.nathanpb.dml.event
 import net.fabricmc.fabric.api.event.Event
 import net.fabricmc.fabric.api.event.EventFactory
 
-inline fun <reified T> event(noinline invokerFactory: (Array<T>) -> T): Event<T> {
+inline fun <reified T : Any> event(noinline invokerFactory: (Array<T>) -> T): Event<T> {
     return EventFactory.createArrayBacked(T::class.java, invokerFactory)
 }

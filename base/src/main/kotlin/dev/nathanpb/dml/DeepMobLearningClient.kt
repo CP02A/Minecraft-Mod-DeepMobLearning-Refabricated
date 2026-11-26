@@ -4,34 +4,29 @@ import dev.nathanpb.dml.blockEntity.BLOCKENTITY_DATA_SYNTHESIZER
 import dev.nathanpb.dml.blockEntity.BLOCKENTITY_DISRUPTIONS_CORE
 import dev.nathanpb.dml.blockEntity.renderer.BlockEntityRendererDataSynthesizer
 import dev.nathanpb.dml.blockEntity.renderer.BlockEntityRendererDisruptionsCore
+import dev.nathanpb.dml.client.registerItemTints
 import dev.nathanpb.dml.entity.registerEntityRenderer
-import dev.nathanpb.dml.item.ITEM_ENERGY_OCTAHEDRON
 import dev.nathanpb.dml.screen.registerScreens
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
-import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories
+import dev.nathanpb.dml.utils.RegistryAccessHolder
+import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers
 
 @Suppress("unused")
 fun initClient() {
+    RegistryAccessHolder.clientLookup = { Minecraft.getInstance().level?.registryAccess() }
+
     registerScreens()
     registerEntityRenderer()
 
-    BlockEntityRendererFactories.register(
+    BlockEntityRenderers.register(
         BLOCKENTITY_DATA_SYNTHESIZER,
         ::BlockEntityRendererDataSynthesizer
     )
-    BlockEntityRendererFactories.register(
+    BlockEntityRenderers.register(
         BLOCKENTITY_DISRUPTIONS_CORE,
         ::BlockEntityRendererDisruptionsCore
     )
 
-    ModelLoadingPlugin.register{ ctx ->
-        ctx.addModels(
-            identifier("block/data_synthesizer_grid")
-        )
-    }
-
-    ITEM_ENERGY_OCTAHEDRON.let {
-        ColorProviderRegistry.ITEM.register({ stack, _ -> it.getScaledColor(stack) }, it)
-    }
+    // Item colors moved into the item model definitions (assets/*/items): the tint sources used there
+    registerItemTints()
 }

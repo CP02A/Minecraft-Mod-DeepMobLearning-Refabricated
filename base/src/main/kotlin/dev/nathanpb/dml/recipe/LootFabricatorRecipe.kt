@@ -19,72 +19,83 @@
 
 package dev.nathanpb.dml.recipe
 
-import com.google.gson.JsonObject
+import com.mojang.serialization.Codec
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
 import dev.nathanpb.dml.enums.EntityCategory
-import dev.nathanpb.dml.inventory.LootFabricatorInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.recipe.Ingredient
-import net.minecraft.recipe.Recipe
-import net.minecraft.recipe.RecipeSerializer
-import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.util.Identifier
-import net.minecraft.world.World
+import dev.nathanpb.dml.identifier
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.resources.Identifier
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.crafting.PlacementInfo
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeBookCategories
+import net.minecraft.world.item.crafting.RecipeBookCategory
+import net.minecraft.world.item.crafting.RecipeSerializer
+import net.minecraft.world.item.crafting.SingleRecipeInput
+import net.minecraft.world.level.Level
 
 /**
  * This is a kinda dummy recipe class made in order to provide compatibility with REI
  */
 class LootFabricatorRecipe (
-    private val id: Identifier,
     val input: Ingredient,
     val category: EntityCategory
-) : Recipe<LootFabricatorInventory> {
+) : Recipe<SingleRecipeInput>, IdentifiedRecipe {
 
-    override fun getId() = id
+    override var id: Identifier = identifier("unknown")
 
     override fun getType() = RECIPE_LOOT_FABRICATOR
 
-    override fun craft(inv: LootFabricatorInventory, registry: DynamicRegistryManager): ItemStack = ItemStack.EMPTY
+    override fun assemble(input: SingleRecipeInput): ItemStack = ItemStack.EMPTY
 
-    override fun getOutput(registry: DynamicRegistryManager): ItemStack = ItemStack.EMPTY
+    override fun getSerializer() = SERIALIZER
 
-    override fun fits(width: Int, height: Int) = true
-
-    override fun getSerializer() = LOOT_FABRICATOR_SERIALIZER
-
-    override fun matches(inv: LootFabricatorInventory, world: World?): Boolean {
-        return input.test(inv.stackInInputSlot)
+    override fun matches(input: SingleRecipeInput, world: Level): Boolean {
+        return this.input.test(input.item())
     }
+
+    override fun showNotification() = false
+    override fun group() = ""
+    override fun isSpecial() = true
+    override fun placementInfo(): PlacementInfo = PlacementInfo.NOT_PLACEABLE
+    override fun recipeBookCategory(): RecipeBookCategory = RecipeBookCategories.CRAFTING_MISC
 
     override fun equals(other: Any?): Boolean {
         if (other is LootFabricatorRecipe) {
             return other.category.name == category.name
-                && other.input.matchingStacks.all { input.test(it) }
-                && input.matchingStacks.all { other.input.test(it) }
+                && other.input.items().allMatch { input.test(ItemStack(it)) }
+                && input.items().allMatch { other.input.test(ItemStack(it)) }
         }
         return false
     }
 
-    class Serializer : RecipeSerializer<LootFabricatorRecipe> {
-        override fun write(buf: PacketByteBuf, recipe: LootFabricatorRecipe) {
-            recipe.input.write(buf)
-            buf.writeString(recipe.category.name)
+    override fun hashCode() = category.hashCode()
+
+    companion object {
+        val CODEC: MapCodec<LootFabricatorRecipe> = RecordCodecBuilder.mapCodec { i ->
+            i.group(
+                Ingredient.CODEC.fieldOf("input").forGetter(LootFabricatorRecipe::input),
+                ENTITY_CATEGORY_CODEC.fieldOf("category").forGetter(LootFabricatorRecipe::category)
+            ).apply(i, ::LootFabricatorRecipe)
         }
 
-        override fun read(id: Identifier, json: JsonObject): LootFabricatorRecipe {
-            val input = Ingredient.fromJson(json.get("input"))
-            val category = EntityCategory.valueOf(json.getAsJsonPrimitive("category").asString)
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, LootFabricatorRecipe> = StreamCodec.composite(
+            Ingredient.CONTENTS_STREAM_CODEC, LootFabricatorRecipe::input,
+            ENTITY_CATEGORY_STREAM_CODEC, LootFabricatorRecipe::category,
+            ::LootFabricatorRecipe
+        )
 
-            return LootFabricatorRecipe(id, input, category)
-        }
-
-        override fun read(id: Identifier, buf: PacketByteBuf): LootFabricatorRecipe {
-            val input = Ingredient.fromPacket(buf)
-            val category = EntityCategory.valueOf(buf.readString())
-
-            return LootFabricatorRecipe(id, input, category)
-        }
-
+        @Suppress("DEPRECATION")
+        val SERIALIZER = RecipeSerializer(CODEC, STREAM_CODEC)
     }
 
 }
+
+/** Entity categories by their enum name, as the recipe files have them. */
+val ENTITY_CATEGORY_CODEC: Codec<EntityCategory> = Codec.STRING.xmap(EntityCategory::valueOf, EntityCategory::name)
+val ENTITY_CATEGORY_STREAM_CODEC: StreamCodec<io.netty.buffer.ByteBuf, EntityCategory> =
+    ByteBufCodecs.STRING_UTF8.map(EntityCategory::valueOf, EntityCategory::name)

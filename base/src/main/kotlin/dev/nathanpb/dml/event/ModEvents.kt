@@ -21,7 +21,7 @@ package dev.nathanpb.dml.event
 
 import dev.nathanpb.dml.trial.Trial
 import dev.nathanpb.dml.trial.TrialEndReason
-import net.minecraft.entity.LivingEntity
+import net.minecraft.world.entity.LivingEntity
 
 object ModEvents {
     val TrialStateChanged = event<(Trial)->Unit> { listeners ->

@@ -25,20 +25,20 @@ import dev.nathanpb.dml.screen.handler.HANDLER_DEEP_LEARNER
 import dev.nathanpb.dml.screen.handler.HANDLER_DISRUPTIONS_CORE
 import dev.nathanpb.dml.screen.handler.HANDLER_LOOT_FABRICATOR
 import io.github.cottonmc.cotton.gui.client.CottonInventoryScreen
-import net.minecraft.client.gui.screen.ingame.HandledScreens
+import net.minecraft.client.gui.screens.MenuScreens
 
 fun registerScreens() {
-    HandledScreens.register(HANDLER_DEEP_LEARNER) { handler, inventory, title ->
+    MenuScreens.register(HANDLER_DEEP_LEARNER) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
-    HandledScreens.register(HANDLER_DATA_SYNTHESIZER) { handler, inventory, title ->
+    MenuScreens.register(HANDLER_DATA_SYNTHESIZER) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
-    HandledScreens.register(HANDLER_LOOT_FABRICATOR) { handler, inventory, title ->
+    MenuScreens.register(HANDLER_LOOT_FABRICATOR) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
 
-    HandledScreens.register(HANDLER_DISRUPTIONS_CORE) { handler, inventory, title ->
+    MenuScreens.register(HANDLER_DISRUPTIONS_CORE) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
 }

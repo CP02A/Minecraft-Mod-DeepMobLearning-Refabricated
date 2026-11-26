@@ -19,41 +19,40 @@
 
 package dev.nathanpb.dml.listener
 
-import dev.nathanpb.dml.recipe.CrushingRecipe
+import dev.nathanpb.dml.recipe.RECIPE_CRUSHING
+import dev.nathanpb.dml.recipe.recipesOf
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.util.Prediction
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.crafting.SingleRecipeInput
+import net.minecraft.world.level.Level
 
 class CrushingRecipeListener : AttackBlockCallback {  // FIXME
     override fun interact(
-        player: PlayerEntity,
-        world: World,
-        hand: Hand,
+        player: Player,
+        world: Level,
+        hand: InteractionHand,
         pos: BlockPos,
         direction: Direction
-    ): ActionResult {
-        if (!world.isClient) {
-            player.getStackInHand(hand)?.let { stack ->
-                val inv = SimpleInventory(stack)
-                world.getBlockState(pos)?.let { state ->
-                    world.recipeManager
-                        .values()
-                        .filterIsInstance<CrushingRecipe>()
-                        .firstOrNull {
-                            state.block == it.block && it.matches(inv, world)
-                        }?.apply {
-                            player.inventory.offerOrDrop(craft(inv, world.registryManager))
-                            return ActionResult.CONSUME
-                        }
-                }
+    ): InteractionResult {
+        if (!world.isClientSide) {
+            val stack = player.getItemInHand(hand)
+            val input = SingleRecipeInput(stack)
+            val state = world.getBlockState(pos)
+            recipesOf(world, RECIPE_CRUSHING).firstOrNull {
+                state.block == it.block && it.matches(input, world)
+            }?.apply {
+                val result = assemble(input)
+                stack.shrink(1)
+                player.inventory.placeItemBackInInventory(result, Prediction.SERVER_ONLY)
+                return InteractionResult.CONSUME
             }
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
 }

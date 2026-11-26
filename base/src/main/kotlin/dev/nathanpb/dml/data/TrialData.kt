@@ -23,12 +23,12 @@ import dev.nathanpb.dml.data.serializers.TrialAffixListSerializer
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.trial.Trial
 import dev.nathanpb.dml.trial.TrialState
-import dev.nathanpb.ktdatatag.data.MutableCompoundData
-import dev.nathanpb.ktdatatag.serializer.EnumSerializer
-import dev.nathanpb.ktdatatag.serializer.Serializers
-import net.minecraft.nbt.NbtCompound
+import dev.nathanpb.dml.data.tag.MutableCompoundData
+import dev.nathanpb.dml.data.tag.EnumSerializer
+import dev.nathanpb.dml.data.tag.Serializers
+import net.minecraft.nbt.CompoundTag
 
-class TrialData(tag: NbtCompound = NbtCompound()) : MutableCompoundData(tag) {
+class TrialData(tag: CompoundTag = CompoundTag()) : MutableCompoundData(tag) {
 
     constructor(trial: Trial) : this() {
         state = trial.state

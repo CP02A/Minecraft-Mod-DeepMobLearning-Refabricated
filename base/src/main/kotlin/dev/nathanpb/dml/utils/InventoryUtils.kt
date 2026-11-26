@@ -19,19 +19,18 @@
 
 package dev.nathanpb.dml.utils
 
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.util.collection.DefaultedList
+import net.minecraft.core.NonNullList
+import net.minecraft.world.Container
+import net.minecraft.world.item.ItemStack
 
-fun PlayerInventory.hotbar() = (0..8).map(::getStack)
+fun Container.hotbar() = (0..8).map(::getItem)
 
-fun Inventory.items(): DefaultedList<ItemStack> = DefaultedList.copyOf(
+fun Container.items(): NonNullList<ItemStack> = NonNullList.of(
     ItemStack.EMPTY,
-    *(0 until size()).map(::getStack).toTypedArray()
+    *(0 until containerSize).map(::getItem).toTypedArray()
 )
 
-fun Inventory.setStacks(stacks: DefaultedList<ItemStack>) {
-    clear()
-    stacks.take(size()).forEachIndexed(::setStack)
+fun Container.setStacks(stacks: NonNullList<ItemStack>) {
+    clearContent()
+    stacks.take(containerSize).forEachIndexed(::setItem)
 }

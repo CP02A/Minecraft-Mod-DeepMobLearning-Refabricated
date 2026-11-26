@@ -19,69 +19,67 @@
 
 package dev.nathanpb.dml.recipe
 
-import com.google.gson.JsonObject
-import dev.nathanpb.dml.utils.items
-import net.minecraft.block.Block
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.recipe.Ingredient
-import net.minecraft.recipe.Recipe
-import net.minecraft.recipe.RecipeSerializer
-import net.minecraft.recipe.ShapedRecipe
-import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.registry.Registries
-import net.minecraft.util.Identifier
-import net.minecraft.world.World
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
+import dev.nathanpb.dml.identifier
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.Identifier
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.ItemStackTemplate
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.crafting.PlacementInfo
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeBookCategories
+import net.minecraft.world.item.crafting.RecipeBookCategory
+import net.minecraft.world.item.crafting.RecipeSerializer
+import net.minecraft.world.item.crafting.SingleRecipeInput
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Block
 
+/** Hitting [block] while holding [input] turns one input item into [output]. */
 class CrushingRecipe (
-    private val id: Identifier,
     val input: Ingredient,
     val block: Block,
-    val output: ItemStack
-) : Recipe<SimpleInventory> {
+    val output: ItemStackTemplate
+) : Recipe<SingleRecipeInput>, IdentifiedRecipe {
 
-    override fun getId() = id
+    override var id: Identifier = identifier("unknown")
+
     override fun getType() = RECIPE_CRUSHING
-    override fun fits(width: Int, height: Int) = true
-    override fun getSerializer() = CRUSHING_RECIPE_SERIALIZER
-    override fun getOutput(registry: DynamicRegistryManager) = output
+    override fun getSerializer() = SERIALIZER
 
-    override fun craft(inv: SimpleInventory, registry: DynamicRegistryManager): ItemStack {
-        return getOutput(registry).copy().also {
-            inv.items().firstOrNull {
-                input.test(it)
-            }?.decrement(1)
-        }
-    }
+    /** The result; the caller shrinks the input stack. */
+    override fun assemble(input: SingleRecipeInput): ItemStack = output.create()
 
-    override fun matches(inv: SimpleInventory, world: World) = inv.items().any {
-        input.test(it)
-    }
+    override fun matches(input: SingleRecipeInput, world: Level) = this.input.test(input.item())
 
-    class Serializer : RecipeSerializer<CrushingRecipe> {
-        override fun write(buf: PacketByteBuf, recipe: CrushingRecipe) {
-            recipe.input.write(buf)
-            buf.writeIdentifier(Registries.BLOCK.getId(recipe.block))
-            buf.writeItemStack(recipe.output)
-        }
+    override fun showNotification() = false
+    override fun group() = ""
+    override fun isSpecial() = true
+    override fun placementInfo(): PlacementInfo = PlacementInfo.NOT_PLACEABLE
+    override fun recipeBookCategory(): RecipeBookCategory = RecipeBookCategories.CRAFTING_MISC
 
-        override fun read(id: Identifier, buf: PacketByteBuf): CrushingRecipe {
-            return CrushingRecipe(
-                id,
-                Ingredient.fromPacket(buf),
-                Registries.BLOCK[buf.readIdentifier()],
-                buf.readItemStack()
-            )
+    companion object {
+        val CODEC: MapCodec<CrushingRecipe> = RecordCodecBuilder.mapCodec { i ->
+            i.group(
+                Ingredient.CODEC.fieldOf("input").forGetter(CrushingRecipe::input),
+                BuiltInRegistries.BLOCK.byNameCodec().fieldOf("block").forGetter(CrushingRecipe::block),
+                ItemStackTemplate.CODEC.fieldOf("output").forGetter(CrushingRecipe::output)
+            ).apply(i, ::CrushingRecipe)
         }
 
-        override fun read(id: Identifier, json: JsonObject): CrushingRecipe {
-            return CrushingRecipe(
-                id,
-                Ingredient.fromJson(json.getAsJsonObject("input")),
-                Registries.BLOCK[Identifier(json.getAsJsonPrimitive("block").asString)],
-                ShapedRecipe.outputFromJson(json.getAsJsonObject("output"))
-            )
-        }
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, CrushingRecipe> = StreamCodec.composite(
+            Ingredient.CONTENTS_STREAM_CODEC, CrushingRecipe::input,
+            ByteBufCodecs.registry(Registries.BLOCK), CrushingRecipe::block,
+            ItemStackTemplate.STREAM_CODEC, CrushingRecipe::output,
+            ::CrushingRecipe
+        )
+
+        @Suppress("DEPRECATION")
+        val SERIALIZER = RecipeSerializer(CODEC, STREAM_CODEC)
     }
 }

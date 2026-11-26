@@ -20,23 +20,17 @@
 package dev.nathanpb.dml.item
 
 import dev.nathanpb.dml.screen.handler.DeepLearnerScreenHandlerFactory
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.util.Hand
-import net.minecraft.util.TypedActionResult
-import net.minecraft.world.World
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Item
+import net.minecraft.world.level.Level
 
-class ItemDeepLearner : Item(FabricItemSettings().maxCount(1).fireproof()) {
+class ItemDeepLearner(properties: Properties) : Item(properties.stacksTo(1).fireResistant()) {
 
-    override fun use(world: World?, player: PlayerEntity?, hand: Hand): TypedActionResult<ItemStack> {
-        (player as? ServerPlayerEntity)?.let {
-            player.openHandledScreen(
-                DeepLearnerScreenHandlerFactory(hand, this)
-            )
-        }
-        return super.use(world, player, hand)
+    override fun use(world: Level, player: Player, hand: InteractionHand): InteractionResult {
+        (player as? ServerPlayer)?.openMenu(DeepLearnerScreenHandlerFactory(hand, this))
+        return InteractionResult.SUCCESS
     }
 }

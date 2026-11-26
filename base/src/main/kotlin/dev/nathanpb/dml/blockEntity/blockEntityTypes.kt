@@ -19,17 +19,21 @@
 
 package dev.nathanpb.dml.blockEntity
 
-import dev.nathanpb.dml.block.*
-import net.minecraft.block.Block
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.state.property.Properties
-import net.minecraft.util.math.BlockPos
+import dev.nathanpb.dml.block.BLOCK_DATA_SYNTHESIZER
+import dev.nathanpb.dml.block.BLOCK_DISRUPTIONS_CORE
+import dev.nathanpb.dml.block.BLOCK_FADING_GLITCHED_TILE
+import dev.nathanpb.dml.block.BLOCK_LOOT_FABRICATOR
+import dev.nathanpb.dml.block.BLOCK_TRIAL_KEYSTONE
+import net.fabricmc.fabric.api.`object`.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import team.reborn.energy.api.EnergyStorage
-
 
 lateinit var BLOCKENTITY_TRIAL_KEYSTONE: BlockEntityType<BlockEntityTrialKeystone>
 lateinit var BLOCKENTITY_DATA_SYNTHESIZER: BlockEntityType<BlockEntityDataSynthesizer>
@@ -37,10 +41,10 @@ lateinit var BLOCKENTITY_LOOT_FABRICATOR: BlockEntityType<BlockEntityLootFabrica
 lateinit var BLOCKENTITY_DISRUPTIONS_CORE: BlockEntityType<BlockEntityDisruptionsCore>
 lateinit var BLOCKENTITY_FADING_GLITCHED_TILE: BlockEntityType<BlockEntityFadingGlitchedTile>
 
-private fun <E: BlockEntity, B: Block> register(block: B, builder: (BlockPos, BlockState)->E) = Registry.register(
-    Registries.BLOCK_ENTITY_TYPE,
-    Registries.BLOCK.getId(block),
-    BlockEntityType.Builder.create(builder, block).build(null)
+private fun <E: BlockEntity> register(block: Block, builder: (BlockPos, BlockState)->E): BlockEntityType<E> = Registry.register(
+    BuiltInRegistries.BLOCK_ENTITY_TYPE,
+    BuiltInRegistries.BLOCK.getKey(block),
+    FabricBlockEntityTypeBuilder.create(builder, block).build()
 )
 
 fun registerBlockEntityTypes() {
@@ -48,7 +52,7 @@ fun registerBlockEntityTypes() {
     BLOCKENTITY_DATA_SYNTHESIZER = register(BLOCK_DATA_SYNTHESIZER, ::BlockEntityDataSynthesizer).also {
         EnergyStorage.SIDED.registerForBlockEntity(
             { blockEntity, direction ->
-                if(blockEntity.cachedState[Properties.HORIZONTAL_FACING] == direction) {
+                if(blockEntity.blockState.getValue(BlockStateProperties.HORIZONTAL_FACING) == direction) {
                     return@registerForBlockEntity null
                 }
                 return@registerForBlockEntity blockEntity.energyStorage

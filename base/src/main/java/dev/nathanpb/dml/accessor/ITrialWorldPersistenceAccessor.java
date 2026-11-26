@@ -24,5 +24,5 @@ import dev.nathanpb.dml.trial.Trial;
 import java.util.List;
 
 public interface ITrialWorldPersistenceAccessor {
-    List<Trial> getRunningTrials();
+    List<Trial> dml$getRunningTrials();
 }

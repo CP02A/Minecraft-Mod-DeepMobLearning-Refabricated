@@ -28,25 +28,27 @@ import dev.nathanpb.dml.item.ItemDataModel
 import dev.nathanpb.dml.misc.DATA_SYNTHESIZER_PROCESS
 import dev.nathanpb.dml.utils.*
 import io.github.cottonmc.cotton.gui.PropertyDelegateHolder
-import net.minecraft.block.BlockState
-import net.minecraft.block.InventoryProvider
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.inventory.Inventories
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.state.property.Properties
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.Containers
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.core.NonNullList
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.LevelAccessor
 import team.reborn.energy.api.base.SimpleEnergyStorage
 import kotlin.properties.Delegates
 
 
 class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
     ClientSyncedBlockEntity(BLOCKENTITY_DATA_SYNTHESIZER, pos, state),
-    InventoryProvider,
+    WorldlyContainerHolder,
     PropertyDelegateHolder
 {
 
@@ -56,14 +58,14 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
      * 2 - [canProgress]
      * 3 - [mute]
      */
-    private val _propertyDelegate = ArrayPropertyDelegate(4)
+    private val _propertyDelegate = SimpleContainerData(4)
     val inventory = DataSynthesizerInventory()
     val energyCapacity = baseConfig.machines.dataSynthesizer.energyCapacity
     private val energyIO = baseConfig.machines.dataSynthesizer.energyIO
     val energyStorage: SimpleEnergyStorage = object : SimpleEnergyStorage(energyCapacity, energyIO, energyIO) {
 
         override fun onFinalCommit() {
-            markDirty()
+            setChanged()
         }
     }
 
@@ -84,13 +86,13 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
 
     companion object {
         val ticker = BlockEntityTicker<BlockEntityDataSynthesizer> { world, pos, _, blockEntity ->
-            val dataModelStack = blockEntity.inventory.getStack(0)
-            if(!dataModelStack.isEmpty && dataModelStack.item is ItemDataModel && !dataModelStack.isOf(ITEM_DATA_MODEL)) {
+            val dataModelStack = blockEntity.inventory.getItem(0)
+            if(!dataModelStack.isEmpty && dataModelStack.item is ItemDataModel && !dataModelStack.`is`(ITEM_DATA_MODEL)) {
                 val dataEnergyValue = dataModelStack.dataModel.category!!.energyValue
                 if(blockEntity.energyStorage.amount <= (blockEntity.energyCapacity - dataEnergyValue)) {
                     if(dataModelStack.hasSimUnrestrictedData()) {
                         blockEntity.canProgress = true
-                        blockEntity.markDirty()
+                        blockEntity.setChanged()
                         blockEntity.sync()
                     } else { // ensure the laser on the UI doesn't flicker by only removing flag on the start of the next loop, if invalid
                         removeCanProgressFlag(blockEntity)
@@ -109,7 +111,7 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
                             dataModelStack.dataModel.dataAmount--
                             blockEntity.energyStorage.amount += dataEnergyValue
                             resetProgress(blockEntity)
-                            blockEntity.markDirty()
+                            blockEntity.setChanged()
                             blockEntity.sync()
                         }
                     }
@@ -120,13 +122,13 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
                 // Remove invalid 'simulated' tag
                 if(dataModelStack.dataModel.simulated && dataModelStack.dataModel.dataAmount <= 0) {
                     dataModelStack.dataModel.simulated = false
-                    blockEntity.markDirty()
+                    blockEntity.setChanged()
                 }
             } else {
                 removeCanProgressFlag(blockEntity)
             }
 
-            pushEnergyExcept(world, pos, setOf(world.getBlockState(pos)[Properties.HORIZONTAL_FACING]), blockEntity.energyStorage)
+            pushEnergyExcept(world, pos, setOf(world.getBlockState(pos).getValue(BlockStateProperties.HORIZONTAL_FACING)), blockEntity.energyStorage)
             moveToStorage(blockEntity.energyStorage, blockEntity.inventory, 1)
             moveToStack(blockEntity.energyStorage, blockEntity.inventory, 2)
         }
@@ -135,7 +137,7 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
         private fun removeCanProgressFlag(blockEntity: BlockEntityDataSynthesizer) {
             blockEntity.canProgress = false
             resetProgress(blockEntity)
-            blockEntity.markDirty()
+            blockEntity.setChanged()
             blockEntity.sync()
         }
 
@@ -144,42 +146,44 @@ class BlockEntityDataSynthesizer(pos: BlockPos, state: BlockState) :
         }
     }
 
-    override fun getInventory(state: BlockState, world: WorldAccess, pos: BlockPos): SidedInventory {
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos): WorldlyContainer {
         return (world.getBlockEntity(pos) as BlockEntityDataSynthesizer).inventory
     }
 
-    override fun toTag(nbt: NbtCompound) {
-        NbtCompound().let { invTag ->
-            Inventories.writeNbt(invTag, inventory.items())
-            nbt.put("${MOD_ID}:inventory", invTag)
-        }
+    override fun toTag(output: ValueOutput) {
+        ContainerHelper.saveAllItems(output.child("${MOD_ID}:inventory"), inventory.items())
 
-        nbt.putLong("${MOD_ID}:energy", energyStorage.amount)
-        nbt.putBoolean("${MOD_ID}:can_progress", canProgress)
-        nbt.putInt("${MOD_ID}:progress", progress)
-        nbt.putBoolean("${MOD_ID}:mute", mute)
+        output.putLong("${MOD_ID}:energy", energyStorage.amount)
+        output.putBoolean("${MOD_ID}:can_progress", canProgress)
+        output.putInt("${MOD_ID}:progress", progress)
+        output.putBoolean("${MOD_ID}:mute", mute)
     }
 
 
-    override fun fromTag(nbt: NbtCompound) {
-        val stacks = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY)
-        Inventories.readNbt(nbt.getCompound("${MOD_ID}:inventory"), stacks)
+    override fun fromTag(input: ValueInput) {
+        val stacks = NonNullList.withSize(inventory.containerSize, ItemStack.EMPTY)
+        ContainerHelper.loadAllItems(input.childOrEmpty("${MOD_ID}:inventory"), stacks)
         inventory.setStacks(stacks)
 
-        energyStorage.amount = nbt.getLong("${MOD_ID}:energy")
-        canProgress = nbt.getBoolean("${MOD_ID}:can_progress")
-        progress = nbt.getInt("${MOD_ID}:progress")
-        mute = nbt.getBoolean("${MOD_ID}:mute")
+        energyStorage.amount = input.getLongOr("${MOD_ID}:energy", 0L)
+        canProgress = input.getBooleanOr("${MOD_ID}:can_progress", false)
+        progress = input.getIntOr("${MOD_ID}:progress", 0)
+        mute = input.getBooleanOr("${MOD_ID}:mute", false)
     }
 
-    override fun toClientTag(nbt: NbtCompound) {
-        toTag(nbt)
+    override fun toClientTag(output: ValueOutput) {
+        toTag(output)
     }
 
-    override fun fromClientTag(nbt: NbtCompound) {
-        fromTag(nbt)
+    override fun fromClientTag(input: ValueInput) {
+        fromTag(input)
     }
 
-    override fun getPropertyDelegate() = _propertyDelegate
+    // Before 1.21.5 the block dropped the inventory when it was replaced
+    override fun preRemoveSideEffects(pos: BlockPos, state: BlockState) {
+        level?.let { Containers.dropContents(it, pos, inventory) }
+    }
+
+    override fun getPropertyDelegate(): SimpleContainerData = _propertyDelegate
 
 }

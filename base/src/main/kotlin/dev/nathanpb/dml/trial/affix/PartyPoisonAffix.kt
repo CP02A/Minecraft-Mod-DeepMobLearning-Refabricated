@@ -26,12 +26,13 @@ import dev.nathanpb.dml.trial.TrialState
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
 import dev.nathanpb.dml.utils.getPlayersByUUID
 import dev.nathanpb.dml.utils.toVec3d
-import net.minecraft.entity.projectile.thrown.PotionEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.potion.PotionUtil
-import net.minecraft.potion.Potions
-import net.minecraft.text.Text
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownSplashPotion
+import net.minecraft.core.component.DataComponents
+import net.minecraft.world.item.alchemy.PotionContents
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.alchemy.Potions
+import net.minecraft.network.chat.Component
 import kotlin.random.Random
 
 class PartyPoisonAffix : TrialAffix(identifier("party_poison")), TrialAffix.TickableAffix {
@@ -42,20 +43,20 @@ class PartyPoisonAffix : TrialAffix(identifier("party_poison")), TrialAffix.Tick
         if (trial.state == TrialState.RUNNING && Random.nextFloat() < baseConfig.trial.affixes.partyPoisonChance) {
 
             (0..360).step(16).forEach { angle ->
-                val potionEntity = PotionEntity(trial.world, trial.systemGlitch)
+                val glitch = trial.systemGlitch ?: return
+                val stack = ItemStack(Items.SPLASH_POTION)
+                stack.set(DataComponents.POTION_CONTENTS, PotionContents(Potions.POISON))
+                val potionEntity = ThrownSplashPotion(trial.world, glitch, stack)
                 trial.pos.toVec3d().apply {
                     potionEntity.setPos(x, y+1, z)
                 }
-                val stack = ItemStack(Items.SPLASH_POTION)
-                PotionUtil.setPotion(stack, Potions.POISON)
-                potionEntity.setItem(stack)
-                potionEntity.setVelocity(trial.systemGlitch, -60F, angle.toFloat(), -20.0f, 0.5f, 1.0f)
-                trial.world.spawnEntity(potionEntity)
+                potionEntity.shootFromRotation(glitch, -60F, angle.toFloat(), -20.0f, 0.5f, 1.0f)
+                trial.world.addFreshEntity(potionEntity)
             }
 
             if (Random.nextFloat() < .01F) {
                 trial.world.getPlayersByUUID(trial.players).forEach {
-                    it.sendMessage(Text.of("Hide your eyes, we're gonna shine tonight"), false)
+                    it.sendSystemMessage(Component.literal("Hide your eyes, we're gonna shine tonight"))
                 }
             }
         }

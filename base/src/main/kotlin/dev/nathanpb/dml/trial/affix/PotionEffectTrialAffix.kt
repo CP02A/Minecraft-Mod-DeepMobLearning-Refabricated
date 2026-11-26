@@ -24,16 +24,17 @@ import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.trial.Trial
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.effect.StatusEffect
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.util.Identifier
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.core.Holder
+import net.minecraft.world.effect.MobEffect
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.resources.Identifier
 import kotlin.random.Random
 
 abstract class PotionEffectTrialAffix(
     id: Identifier,
-    @Suppress("private") vararg val effects: StatusEffect
+    @Suppress("private") vararg val effects: Holder<MobEffect>
 ): TrialAffix(id), TrialAffix.WaveSpawnedListener  {
 
     override fun onWaveSpawn(trial: Trial, waveEntities: List<LivingEntity>) {
@@ -42,23 +43,23 @@ abstract class PotionEffectTrialAffix(
             Random.nextFloat() <= chanceOfApplying
         }.forEach { entity ->
             effects.map { effect ->
-                StatusEffectInstance(effect, (baseConfig.trial.maxTime - trial.tickCount).coerceAtLeast(0))
+                MobEffectInstance(effect, (baseConfig.trial.maxTime - trial.tickCount).coerceAtLeast(0))
             }.forEach {
-                entity.addStatusEffect(it)
+                entity.addEffect(it)
             }
         }
     }
 
 }
 
-class MobStrengthTrialAffix : PotionEffectTrialAffix(identifier("mob_strength"), StatusEffects.STRENGTH) {
+class MobStrengthTrialAffix : PotionEffectTrialAffix(identifier("mob_strength"), MobEffects.STRENGTH) {
     override fun isEnabled() = baseConfig.trial.affixes.enableMobStrength
 }
 
-class MobSpeedTrialAffix : PotionEffectTrialAffix(identifier("mob_speed"), StatusEffects.SPEED) {
+class MobSpeedTrialAffix : PotionEffectTrialAffix(identifier("mob_speed"), MobEffects.SPEED) {
     override fun isEnabled() = baseConfig.trial.affixes.enableMobSpeed
 }
 
-class MobResistanceTrialAffix : PotionEffectTrialAffix(identifier("mob_resistance"), StatusEffects.RESISTANCE) {
+class MobResistanceTrialAffix : PotionEffectTrialAffix(identifier("mob_resistance"), MobEffects.RESISTANCE) {
     override fun isEnabled() = baseConfig.trial.affixes.enableMobResistance
 }

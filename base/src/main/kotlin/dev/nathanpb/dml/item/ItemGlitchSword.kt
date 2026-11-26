@@ -20,91 +20,87 @@
 
 package dev.nathanpb.dml.item
 
-import com.google.common.collect.ImmutableMultimap
-import com.google.common.collect.Multimap
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.utils.RenderUtils
 import dev.nathanpb.dml.utils.getEnergyBarStep
 import dev.nathanpb.dml.utils.getEnergyTooltipText
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.EquipmentSlot
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.attribute.EntityAttribute
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.damage.DamageTypes
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.item.SwordItem
-import net.minecraft.item.ToolMaterial
-import net.minecraft.item.ToolMaterials
-import net.minecraft.recipe.Ingredient
-import net.minecraft.text.Text
-import net.minecraft.util.Rarity
-import net.minecraft.world.World
+import dev.nathanpb.dml.utils.removeComponent
+import net.minecraft.core.component.DataComponents
+import net.minecraft.network.chat.Component
+import net.minecraft.util.Unit
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.damagesource.DamageTypes
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Rarity
+import net.minecraft.world.item.ToolMaterial
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.item.component.TooltipDisplay
 import team.reborn.energy.api.base.SimpleEnergyItem
+import java.util.function.Consumer
 
-
-class ItemGlitchSword : SwordItem(
-        this,
-        3,
-        -2.4f,
-        FabricItemSettings().fireproof()
+/**
+ * A netherite-like sword that runs on energy instead of durability. Without enough energy it hits like an empty hand
+ * (before 1.20.5 its attribute modifiers were removed, now [getAttackDamageBonus] cancels the sword's damage).
+ */
+class ItemGlitchSword(properties: Properties) : Item(
+    properties.sword(ToolMaterial.NETHERITE, 3F, -2.4F)
+        .fireResistant()
+        .rarity(Rarity.EPIC)
+        // Energy instead of durability, and no enchanting (the material makes it damageable and enchantable)
+        .removeComponent(DataComponents.MAX_DAMAGE)
+        .removeComponent(DataComponents.DAMAGE)
+        .removeComponent(DataComponents.ENCHANTABLE)
+        .component(DataComponents.UNBREAKABLE, Unit.INSTANCE)
 ), SimpleEnergyItem {
 
-    private val usageCost = baseConfig.misc.glitchSword.usageCost
+    private val usageCost get() = baseConfig.misc.glitchSword.usageCost
 
-    override fun getAttributeModifiers(stack: ItemStack, slot: EquipmentSlot): Multimap<EntityAttribute, EntityAttributeModifier> {
-        if(getStoredEnergy(stack) >= usageCost) {
-            return super.getAttributeModifiers(stack, slot)
-        }
-        return ImmutableMultimap.of()
+    override fun getAttackDamageBonus(victim: Entity, damage: Float, damageSource: DamageSource): Float {
+        val stack = damageSource.weaponItem ?: return 0F
+        // Down to the damage of an empty hand (1)
+        return if(getStoredEnergy(stack) >= usageCost) 0F else 1F - damage
     }
 
-    override fun postHit(stack: ItemStack, target: LivingEntity, attacker: LivingEntity): Boolean {
+    override fun hurtEnemy(stack: ItemStack, target: LivingEntity, attacker: LivingEntity) {
         if(getStoredEnergy(stack) >= usageCost) {
-            return tryUseEnergy(stack, usageCost)
+            tryUseEnergy(stack, usageCost)
         }
-        return false
     }
 
     override fun getEnergyCapacity(stack: ItemStack) = baseConfig.misc.glitchSword.energyCapacity
     override fun getEnergyMaxInput(stack: ItemStack) = baseConfig.misc.glitchSword.energyInput
     override fun getEnergyMaxOutput(stack: ItemStack) = 0L
 
-    override fun getItemBarStep(stack: ItemStack): Int = getEnergyBarStep(stack)
-    override fun getItemBarColor(stack: ItemStack) = RenderUtils.ENERGY_COLOR
-    override fun isItemBarVisible(stack: ItemStack) = true
+    override fun getBarWidth(stack: ItemStack): Int = getEnergyBarStep(stack)
+    override fun getBarColor(stack: ItemStack) = RenderUtils.ENERGY_COLOR
+    override fun isBarVisible(stack: ItemStack) = true
 
-    override fun isDamageable(): Boolean = false
-    override fun isEnchantable(stack: ItemStack) = false
-
-    override fun getRarity(stack: ItemStack) = Rarity.EPIC
-
-    override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text>, context: TooltipContext) {
-        tooltip.add(getEnergyTooltipText(stack))
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        display: TooltipDisplay,
+        tooltip: Consumer<Component>,
+        flag: TooltipFlag
+    ) {
+        tooltip.accept(getEnergyTooltipText(stack))
     }
 
-    companion object : ToolMaterial {
+    companion object {
 
         fun getIncreasedDamage(source: DamageSource, amount: Float): Float {
             var finalAmount = amount
-            if(source.typeRegistryEntry.key.get().value == DamageTypes.PLAYER_ATTACK.value && source.attacker is PlayerEntity) {
-                val attacker = source.attacker as PlayerEntity
-                if(attacker.getStackInHand(attacker.activeHand).isOf(ITEM_GLITCH_SWORD)) {
+            val attacker = source.entity
+            if(source.`is`(DamageTypes.PLAYER_ATTACK) && attacker is Player) {
+                if(attacker.mainHandItem.`is`(ITEM_GLITCH_SWORD)) {
                     finalAmount *= 2F
                 }
             }
             return finalAmount
         }
-
-        override fun getDurability(): Int = ToolMaterials.NETHERITE.durability
-        override fun getAttackDamage(): Float = ToolMaterials.NETHERITE.attackDamage
-        override fun getRepairIngredient(): Ingredient = Ingredient.EMPTY
-        override fun getEnchantability(): Int = 0
-        override fun getMiningSpeedMultiplier(): Float = 0F
-        override fun getMiningLevel(): Int = 0
     }
 
 }

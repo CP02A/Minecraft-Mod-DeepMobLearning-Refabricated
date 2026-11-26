@@ -21,7 +21,7 @@ package dev.nathanpb.dml.trial.affix.core
 
 import dev.nathanpb.dml.event.ModEvents
 import dev.nathanpb.dml.trial.affix.*
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 import org.jetbrains.annotations.ApiStatus
 
 class TrialAffixRegistry private constructor() {

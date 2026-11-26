@@ -19,8 +19,8 @@
 
 package dev.nathanpb.dml.entity.model
 
-import dev.nathanpb.dml.entity.SystemGlitchEntity
-import net.minecraft.client.model.ModelPart
-import net.minecraft.client.render.entity.model.BipedEntityModel
+import net.minecraft.client.model.HumanoidModel
+import net.minecraft.client.model.geom.ModelPart
+import net.minecraft.client.renderer.entity.state.HumanoidRenderState
 
-class SystemGlitchModel(part: ModelPart) : BipedEntityModel<SystemGlitchEntity>(part)
+class SystemGlitchModel(part: ModelPart) : HumanoidModel<HumanoidRenderState>(part)

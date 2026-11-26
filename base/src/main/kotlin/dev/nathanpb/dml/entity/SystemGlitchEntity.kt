@@ -30,31 +30,39 @@ import dev.nathanpb.dml.trial.TrialGriefPrevention
 import dev.nathanpb.dml.utils.randomAround
 import dev.nathanpb.dml.utils.runningTrials
 import dev.nathanpb.dml.utils.toVec3d
-import net.minecraft.entity.Entity
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.EquipmentSlot
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.ai.goal.*
-import net.minecraft.entity.attribute.DefaultAttributeContainer
-import net.minecraft.entity.attribute.EntityAttribute
-import net.minecraft.entity.attribute.EntityAttributes
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.entity.mob.HostileEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier
+import net.minecraft.world.entity.ai.attributes.Attribute
+import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.monster.Monster
+import net.minecraft.world.entity.player.Player
+import net.minecraft.core.Holder
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.damagesource.DamageTypes
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import kotlin.math.min
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal
 
-class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : HostileEntity(type, world) {
+class SystemGlitchEntity(type: EntityType<out SystemGlitchEntity>, world: Level) : Monster(type, world) {
     companion object {
-        fun createMobAttributes(): DefaultAttributeContainer.Builder = LivingEntity.createLivingAttributes()
-            .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 4.0)
-            .add(EntityAttributes.GENERIC_ATTACK_KNOCKBACK)
-            .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 12.0)
-            .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 1.0)
+        fun createMobAttributes(): AttributeSupplier.Builder = LivingEntity.createLivingAttributes()
+            .add(Attributes.FOLLOW_RANGE, 4.0)
+            .add(Attributes.ATTACK_KNOCKBACK)
+            .add(Attributes.ATTACK_DAMAGE, 12.0)
+            .add(Attributes.MOVEMENT_SPEED, 1.0)
     }
 
     /**
@@ -79,7 +87,7 @@ class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : Ho
      * causing its trial to be null until the game reload
      */
     val trial by lazy {
-        world.runningTrials.firstOrNull {
+        level().runningTrials.firstOrNull {
             it.systemGlitch == this
         }
     }
@@ -87,9 +95,9 @@ class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : Ho
     /**
      * Modify the base attack damage of the glitch based in the current tier of the trial
      */
-    override fun getAttributeValue(attribute: EntityAttribute?): Double {
+    override fun getAttributeValue(attribute: Holder<Attribute>): Double {
         val tier = tier
-        if (attribute == EntityAttributes.GENERIC_ATTACK_DAMAGE && tier != null) {
+        if (attribute == Attributes.ATTACK_DAMAGE && tier != null) {
             val tierMultiplier = (tier.ordinal / DataModelTier.values().size.dec()) + .5
             return super.getAttributeValue(attribute) * tierMultiplier
         }
@@ -103,15 +111,15 @@ class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : Ho
         }
     }
 
-    override fun initGoals() {
-        super.initGoals()
-        goalSelector.add(1, WanderAroundGoal(this, 1.0))
-        goalSelector.add(1, LookAroundGoal(this))
-        goalSelector.add(2, MeleeAttackGoal(this, 1.0, true))
+    override fun registerGoals() {
+        super.registerGoals()
+        goalSelector.addGoal(1, RandomStrollGoal(this, 1.0))
+        goalSelector.addGoal(1, RandomLookAroundGoal(this))
+        goalSelector.addGoal(2, MeleeAttackGoal(this, 1.0, true))
 
-        targetSelector.add(1, GlitchTeleportTowardsPlayerGoal(this))
-        targetSelector.add(2, ActiveTargetGoal(this, PlayerEntity::class.java, true))
-        targetSelector.add(3, RevengeGoal(this))
+        targetSelector.addGoal(1, GlitchTeleportTowardsPlayerGoal(this))
+        targetSelector.addGoal(2, NearestAttackableTargetGoal(this, Player::class.java, true))
+        targetSelector.addGoal(3, HurtByTargetGoal(this))
 
         // TODO rage attacks
         // TODO ranged attack
@@ -143,7 +151,7 @@ class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : Ho
 
             if (canTeleport) {
                 pos.toVec3d().apply {
-                    teleport(x, y, z)
+                    teleportTo(x, y, z)
                     return true
                 }
             }
@@ -151,46 +159,36 @@ class SystemGlitchEntity(type: EntityType<out HostileEntity>, world: World) : Ho
         return false
     }
 
-    override fun cannotDespawn() = true
+    override fun requiresCustomPersistence() = true
 
-    override fun getDropChance(slot: EquipmentSlot?): Float {
-        return if (
-            slot == EquipmentSlot.HEAD
-            && getEquippedStack(EquipmentSlot.HEAD).item is ItemEmeritusHat
-        ) 1F else super.getDropChance(slot)
-    }
-
-    override fun canStartRiding(entity: Entity?): Boolean {
+    override fun canRide(entity: Entity): Boolean {
         return false
     }
 
-    override fun canHaveStatusEffect(effect: StatusEffectInstance?): Boolean {
-        return effect?.effectType != StatusEffects.POISON && effect?.effectType != StatusEffects.WITHER
+    override fun canBeAffected(effect: MobEffectInstance): Boolean {
+        return effect.effect != MobEffects.POISON && effect.effect != MobEffects.WITHER
     }
 
-    override fun writeCustomDataToNbt(tag: NbtCompound?) {
-        super.writeCustomDataToNbt(tag)
-        tag?.putBoolean("${MOD_ID}.belongsToTrial", belongsToTrial)
+    override fun addAdditionalSaveData(output: ValueOutput) {
+        super.addAdditionalSaveData(output)
+        output.putBoolean("${MOD_ID}.belongsToTrial", belongsToTrial)
     }
 
-    override fun readCustomDataFromNbt(tag: NbtCompound?) {
-        super.readCustomDataFromNbt(tag)
-        if (tag != null) {
-            belongsToTrial = tag.getBoolean("${MOD_ID}.belongsToTrial")
-        }
+    override fun readAdditionalSaveData(input: ValueInput) {
+        super.readAdditionalSaveData(input)
+        belongsToTrial = input.getBooleanOr("${MOD_ID}.belongsToTrial", false)
     }
 
-    override fun applyDamage(source: DamageSource, amount: Float) {
+    override fun actuallyHurt(world: ServerLevel, source: DamageSource, amount: Float) {
         val finalAmount = ItemGlitchSword.getIncreasedDamage(source, amount)
-        if(source != world.damageSources.outOfWorld() && baseConfig.trial.systemGlitch.damageLimiter > 0) {
-            super.applyDamage(source, min(finalAmount, baseConfig.trial.systemGlitch.damageLimiter))
+        if(!source.`is`(DamageTypes.FELL_OUT_OF_WORLD) && baseConfig.trial.systemGlitch.damageLimiter > 0) {
+            super.actuallyHurt(world, source, min(finalAmount, baseConfig.trial.systemGlitch.damageLimiter))
         } else {
-            super.applyDamage(source, finalAmount)
+            super.actuallyHurt(world, source, finalAmount)
         }
 
         trial?.pos?.let { pos ->
-            (world.getBlockEntity(pos) as? BlockEntityTrialKeystone)
-                ?.markDirty()
+            world.getBlockEntity(pos)?.setChanged()
         }
     }
 }

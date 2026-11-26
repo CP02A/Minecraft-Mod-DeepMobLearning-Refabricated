@@ -20,6 +20,10 @@
 
 package dev.nathanpb.dml.utils
 
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState
+import org.joml.Quaternionf
+import org.joml.Vector3f
 import com.mojang.blaze3d.systems.RenderSystem
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.utils.RenderUtils.Companion.ALT_STYLE
@@ -28,18 +32,18 @@ import io.github.cottonmc.cotton.gui.client.BackgroundPainter
 import io.github.cottonmc.cotton.gui.client.NinePatchBackgroundPainter
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.render.DiffuseLighting
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.entity.LivingEntity
-import net.minecraft.particle.DustParticleEffect
-import net.minecraft.screen.ScreenTexts
-import net.minecraft.text.MutableText
-import net.minecraft.text.Style
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
-import net.minecraft.util.math.RotationAxis
-import net.minecraft.util.math.Vec3d
+import net.minecraft.client.Minecraft
+import com.mojang.blaze3d.platform.Lighting
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.core.particles.DustParticleOptions
+import net.minecraft.network.chat.CommonComponents
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
+import com.mojang.math.Axis
+import net.minecraft.world.phys.Vec3
 import java.text.NumberFormat
 import java.util.*
 
@@ -75,7 +79,7 @@ class RenderUtils {
 
 
 
-        /* Text Colors & Styles */
+        /* Component Colors & Styles */
         const val TITLE_COLOR: Int = 0x04FCC4
         const val ALT_TITLE_COLOR: Int = 0x62D8FF
         val STYLE: Style = Style.EMPTY.withColor(TITLE_COLOR)
@@ -84,18 +88,18 @@ class RenderUtils {
         val ENERGY_STYLE: Style = Style.EMPTY.withColor(ENERGY_COLOR)
 
         /* Particles */
-        val GLITCH_PARTICLE: DustParticleEffect = DustParticleEffect(Vec3d.unpackRgb(TITLE_COLOR).toVector3f(), 1F)
-        val ALT_GLITCH_PARTICLE: DustParticleEffect = DustParticleEffect(Vec3d.unpackRgb(ALT_TITLE_COLOR).toVector3f(), 1F)
+        val GLITCH_PARTICLE: DustParticleOptions = DustParticleOptions(TITLE_COLOR, 1F)
+        val ALT_GLITCH_PARTICLE: DustParticleOptions = DustParticleOptions(ALT_TITLE_COLOR, 1F)
 
     }
 }
 
-fun getBooleanInfoText(primaryText: MutableText, boolean: Boolean, primaryStyle: Style, secondaryStyle: Style): MutableText {
-    val onOffText = ScreenTexts.onOrOff(boolean).copy()
+fun getBooleanInfoText(primaryText: MutableComponent, boolean: Boolean, primaryStyle: Style, secondaryStyle: Style): MutableComponent {
+    val onOffText = CommonComponents.optionStatus(boolean).copy()
     return getInfoText(primaryText, onOffText, primaryStyle, secondaryStyle)
 }
 
-fun getInfoText(primaryText: MutableText, secondaryText: MutableText, primaryStyle: Style = STYLE, secondaryStyle: Style = ALT_STYLE): MutableText {
+fun getInfoText(primaryText: MutableComponent, secondaryText: MutableComponent, primaryStyle: Style = STYLE, secondaryStyle: Style = ALT_STYLE): MutableComponent {
     primaryText.style = primaryStyle
     secondaryText.style = secondaryStyle
 
@@ -103,8 +107,8 @@ fun getInfoText(primaryText: MutableText, secondaryText: MutableText, primarySty
 }
 
 // primaryText | secondaryText
-fun getPipeText(primaryText: MutableText, secondaryText: MutableText, parenthesisStyle: Style = ALT_STYLE): MutableText {
-    val pipeText = Text.translatable(
+fun getPipeText(primaryText: MutableComponent, secondaryText: MutableComponent, parenthesisStyle: Style = ALT_STYLE): MutableComponent {
+    val pipeText = Component.translatable(
         "tooltip.dml-refabricated.pipe",
         primaryText,
         secondaryText
@@ -115,9 +119,9 @@ fun getPipeText(primaryText: MutableText, secondaryText: MutableText, parenthesi
 }
 
 // primaryText (value)
-fun getParenthesisText(primaryText: MutableText, value: Any, parenthesisStyle: Style = ALT_STYLE, addSpace: Boolean = true): MutableText {
-    val parenthesisText = if(addSpace) Text.literal(" ") else Text.empty()
-    parenthesisText.append(Text.translatable(
+fun getParenthesisText(primaryText: MutableComponent, value: Any, parenthesisStyle: Style = ALT_STYLE, addSpace: Boolean = true): MutableComponent {
+    val parenthesisText = if(addSpace) Component.literal(" ") else Component.empty()
+    parenthesisText.append(Component.translatable(
         "tooltip.dml-refabricated.parenthesis",
         value
     ))
@@ -135,7 +139,7 @@ fun getParenthesisText(primaryText: MutableText, value: Any, parenthesisStyle: S
 @Environment(EnvType.CLIENT)
 fun formatAccordingToLanguage(): NumberFormat {
     val locale: Locale = Locale.forLanguageTag(
-        MinecraftClient.getInstance().languageManager.language.replace(
+        Minecraft.getInstance().languageManager.selected.replace(
             "_",
             "-"
         )
@@ -145,52 +149,31 @@ fun formatAccordingToLanguage(): NumberFormat {
 }
 
 // not stolen from mojang, I promise
+/**
+ * Draws [entity] spinning around the vertical axis inside the box (x0, y0)-(x1, y1) of a GUI.
+ * Before 1.21.6 this rendered the entity directly; now the GUI renders a render state of it.
+ */
 @Environment(EnvType.CLIENT)
 fun drawEntity(
+    ctx: GuiGraphicsExtractor,
     entity: LivingEntity,
-    x: Int, y: Int, size: Int,
-    tickDelta: Int,
-    rotationZ: Float,
+    x0: Int, y0: Int, x1: Int, y1: Int,
+    size: Int,
     rotationY: Float,
 ) {
-    val matrixStack = RenderSystem.getModelViewStack()
-    matrixStack.push()
-    matrixStack.translate(x.toDouble(), y.toDouble(), 1050.0)
-    matrixStack.scale(1.0f, 1.0f, -1.0f)
-    RenderSystem.applyModelViewMatrix()
-    val matrixStack2 = MatrixStack()
-    matrixStack2.translate(0.0, 0.0, 1000.0)
-    matrixStack2.scale(size.toFloat(), size.toFloat(), size.toFloat())
-    val quaternion = RotationAxis.POSITIVE_Z.rotationDegrees(rotationZ)
-    val quaternion2 = RotationAxis.POSITIVE_Y.rotationDegrees(rotationY)
-    quaternion.mul(quaternion2)
-    matrixStack2.multiply(quaternion)
-
-
-    DiffuseLighting.method_34742()
-    val entityRenderDispatcher = MinecraftClient.getInstance().entityRenderDispatcher
-
-    quaternion2.conjugate()
-    entityRenderDispatcher.rotation = quaternion2
-
-    entityRenderDispatcher.setRenderShadows(false)
-    val immediate = MinecraftClient.getInstance().bufferBuilders.entityVertexConsumers
-    RenderSystem.runAsFancy {
-        entityRenderDispatcher.render(
-            entity,
-            0.0,
-            0.0,
-            0.0,
-            0.0f,
-            tickDelta.toFloat(),
-            matrixStack2,
-            immediate,
-            15728880
-        )
+    val rotation = Quaternionf().rotateZ(Math.PI.toFloat())
+    val renderer = Minecraft.getInstance().entityRenderDispatcher.getRenderer(entity)
+    val renderState = renderer.createRenderState(entity, 1.0F)
+    renderState.shadowPieces.clear()
+    renderState.outlineColor = 0
+    if (renderState is LivingEntityRenderState) {
+        renderState.bodyRot = rotationY
+        renderState.yRot = 0F
+        renderState.xRot = 0F
+        renderState.boundingBoxWidth = renderState.boundingBoxWidth / renderState.scale
+        renderState.boundingBoxHeight = renderState.boundingBoxHeight / renderState.scale
+        renderState.scale = 1.0F
     }
-    immediate.draw()
-    entityRenderDispatcher.setRenderShadows(true)
-    matrixStack.pop()
-    RenderSystem.applyModelViewMatrix()
-    DiffuseLighting.enableGuiDepthLighting()
+    val translation = Vector3f(0.0F, renderState.boundingBoxHeight / 2.0F, 0.0F)
+    ctx.entity(renderState, size.toFloat(), translation, rotation, null, x0, y0, x1, y1)
 }

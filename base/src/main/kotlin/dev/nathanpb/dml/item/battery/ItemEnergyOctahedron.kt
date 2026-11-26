@@ -1,10 +1,10 @@
 package dev.nathanpb.dml.item.battery
 
 import dev.nathanpb.dml.baseConfig
-import net.minecraft.item.ItemStack
+import net.minecraft.world.item.ItemStack
 import java.awt.Color
 
-class ItemEnergyOctahedron: AbstractItemBattery() {
+class ItemEnergyOctahedron(properties: Properties): AbstractItemBattery(properties) {
 
     override fun getEnergyCapacity(stack: ItemStack) = baseConfig.misc.energyOctahedron.energyCapacity
 

@@ -26,37 +26,38 @@ import dev.nathanpb.dml.utils.RenderUtils.Companion.STYLE
 import net.fabricmc.fabric.api.lookup.v1.block.BlockApiLookup
 import net.fabricmc.fabric.api.lookup.v1.item.ItemApiLookup
 import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext
-import net.fabricmc.fabric.api.transfer.v1.item.InventoryStorage
+import net.fabricmc.fabric.api.transfer.v1.item.ContainerStorage
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemConvertible
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Style
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.Container
+import net.minecraft.world.level.ItemLike
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.Component
+import net.minecraft.ChatFormatting
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.Level
 import team.reborn.energy.api.EnergyStorage
 import team.reborn.energy.api.EnergyStorageUtil
 import team.reborn.energy.api.base.SimpleEnergyItem
-import team.reborn.energy.api.base.SimpleEnergyItem.ENERGY_KEY
 import team.reborn.energy.api.base.SimpleEnergyStorage
 import java.util.function.Predicate
 import kotlin.math.roundToInt
 
 
-val SIDED_PRISTINE = BlockApiLookup.get(identifier("sided_pristine"), EnergyStorage::class.java, Direction::class.java)
+@Suppress("UNCHECKED_CAST")
+val SIDED_PRISTINE: BlockApiLookup<EnergyStorage, Direction?> =
+    BlockApiLookup.get(identifier("sided_pristine"), EnergyStorage::class.java, Direction::class.java) as BlockApiLookup<EnergyStorage, Direction?>
 val ITEM_PRISTINE = ItemApiLookup.get(identifier("item_pristine"), EnergyStorage::class.java, ContainerItemContext::class.java)
 
 
 fun moveToStorage(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int
 ) {
     moveToStorage(energyStorage, inventory, index, EnergyStorage.ITEM)
@@ -64,7 +65,7 @@ fun moveToStorage(
 
 fun moveToStack(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int
 ) {
     moveToStack(energyStorage, inventory, index, EnergyStorage.ITEM)
@@ -72,7 +73,7 @@ fun moveToStack(
 
 fun moveToStoragePristine(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int
 ) {
     moveToStorage(energyStorage, inventory, index, ITEM_PRISTINE)
@@ -80,7 +81,7 @@ fun moveToStoragePristine(
 
 fun moveToStackPristine(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int
 ) {
     moveToStack(energyStorage, inventory, index, ITEM_PRISTINE)
@@ -88,14 +89,14 @@ fun moveToStackPristine(
 
 private fun moveToStorage(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int,
     energyLookup: ItemApiLookup<EnergyStorage, ContainerItemContext>
 ) {
-    val stack = inventory.getStack(index)
+    val stack = inventory.getItem(index)
     if(stack.isEmpty) return
 
-    val stackEnergy = energyLookup.find(stack, ContainerItemContext.ofSingleSlot(InventoryStorage.of(inventory, null).getSlot(index)))
+    val stackEnergy = energyLookup.find(stack, ContainerItemContext.ofSingleSlot(ContainerStorage.of(inventory, null).getSlot(index)))
     if(stackEnergy?.supportsExtraction() == true) {
         EnergyStorageUtil.move(stackEnergy, energyStorage, Long.MAX_VALUE, null)
     }
@@ -103,21 +104,21 @@ private fun moveToStorage(
 
 private fun moveToStack(
     energyStorage: EnergyStorage,
-    inventory: Inventory,
+    inventory: Container,
     index: Int,
     energyLookup: ItemApiLookup<EnergyStorage, ContainerItemContext>
 ) {
-    val stack = inventory.getStack(index)
+    val stack = inventory.getItem(index)
     if(stack.isEmpty) return
 
-    val stackEnergy = energyLookup.find(stack, ContainerItemContext.ofSingleSlot(InventoryStorage.of(inventory, null).getSlot(index)))
+    val stackEnergy = energyLookup.find(stack, ContainerItemContext.ofSingleSlot(ContainerStorage.of(inventory, null).getSlot(index)))
     if(stackEnergy?.supportsInsertion() == true) {
         EnergyStorageUtil.move(energyStorage, stackEnergy, Long.MAX_VALUE, null)
     }
 }
 
 fun pushEnergyToAllSides(
-    world: World,
+    world: Level,
     pos: BlockPos,
     originStorage: EnergyStorage
 ) {
@@ -125,7 +126,7 @@ fun pushEnergyToAllSides(
 }
 
 fun pushPristineEnergyToAllSides(
-    world: World,
+    world: Level,
     pos: BlockPos,
     originStorage: EnergyStorage
 ) {
@@ -133,16 +134,16 @@ fun pushPristineEnergyToAllSides(
 }
 
 private fun pushEnergyToAllSides(
-    world: World,
+    world: Level,
     pos: BlockPos,
     originStorage: EnergyStorage,
-    energyLookup: BlockApiLookup<EnergyStorage, Direction>
+    energyLookup: BlockApiLookup<EnergyStorage, Direction?>
 ) {
     pushEnergyExcept(world, pos, setOf(), originStorage, energyLookup)
 }
 
 fun pushEnergyExcept(
-    world: World,
+    world: Level,
     pos: BlockPos,
     exceptDirections: Set<Direction>,
     originStorage: EnergyStorage
@@ -155,7 +156,7 @@ fun pushEnergyExcept(
 }
 
 fun pushPristineEnergyExcept(
-    world: World,
+    world: Level,
     pos: BlockPos,
     exceptDirections: Set<Direction>,
     originStorage: EnergyStorage
@@ -168,11 +169,11 @@ fun pushPristineEnergyExcept(
 }
 
 private fun pushEnergyExcept(
-    world: World,
+    world: Level,
     pos: BlockPos,
     exceptDirections: Set<Direction>,
     originStorage: EnergyStorage,
-    energyLookup: BlockApiLookup<EnergyStorage, Direction>
+    energyLookup: BlockApiLookup<EnergyStorage, Direction?>
 ) {
     val directions = mutableSetOf(*Direction.values())
     directions.removeAll(exceptDirections)
@@ -182,13 +183,13 @@ private fun pushEnergyExcept(
 }
 
 private fun pushEnergy(
-    world: World,
+    world: Level,
     pos: BlockPos,
     direction: Direction,
     originStorage: EnergyStorage,
-    energyLookup: BlockApiLookup<EnergyStorage, Direction>
+    energyLookup: BlockApiLookup<EnergyStorage, Direction?>
 ): Long {
-    val externalStorage = energyLookup.find(world, pos.offset(direction), direction.opposite)
+    val externalStorage = energyLookup.find(world, pos.relative(direction), direction.opposite)
     return EnergyStorageUtil.move(originStorage, externalStorage, Long.MAX_VALUE, null)
 }
 
@@ -227,7 +228,7 @@ fun getEnergyBarStep(stack: ItemStack): Int {
 }
 
 fun distributeEnergyToInventory(
-    player: PlayerEntity,
+    player: Player,
     itemStack: ItemStack,
     maxOutput: Long,
     filter: Predicate<ItemStack>,
@@ -236,8 +237,8 @@ fun distributeEnergyToInventory(
     val playerInv = PlayerInventoryStorage.of(player)
     var sourceSlot: SingleSlotStorage<ItemVariant>? = null
 
-    for(i in 0 until player.inventory.size()) {
-        if(player.inventory.getStack(i) == itemStack) {
+    for(i in 0 until player.inventory.getContainerSize()) {
+        if(player.inventory.getItem(i) == itemStack) {
             sourceSlot = playerInv.slots[i]
             break
         }
@@ -247,8 +248,8 @@ fun distributeEnergyToInventory(
     val energyType = if(isPristine) ITEM_PRISTINE else EnergyStorage.ITEM
     val sourceStorage = ContainerItemContext.ofPlayerSlot(player, sourceSlot).find(energyType) ?: return
 
-    for(i in 0 until player.inventory.size()) {
-        val invStack = player.inventory.getStack(i)
+    for(i in 0 until player.inventory.getContainerSize()) {
+        val invStack = player.inventory.getItem(i)
 
         if(invStack.isEmpty || !filter.test(invStack)) continue
         EnergyStorageUtil.move(
@@ -273,26 +274,26 @@ fun getEnergyStorage(stack: ItemStack, ctx: ContainerItemContext): EnergyStorage
     return null
 }
 
-fun getEnergyTooltipText(stack: ItemStack): Text {
-    return getEnergyTooltipText(stack, ENERGY_STYLE, Style.EMPTY.withFormatting(Formatting.YELLOW))
+fun getEnergyTooltipText(stack: ItemStack): Component {
+    return getEnergyTooltipText(stack, ENERGY_STYLE, Style.EMPTY.applyFormats(ChatFormatting.YELLOW))
 }
 
-fun getPristineEnergyTooltipText(stack: ItemStack): Text {
+fun getPristineEnergyTooltipText(stack: ItemStack): Component {
     return getEnergyTooltipText(stack, STYLE, ALT_STYLE, true)
 }
 
-fun getEnergyTooltipText(stack: ItemStack, primaryStyle: Style, secondaryStyle: Style, isPristine: Boolean = false): Text {
+fun getEnergyTooltipText(stack: ItemStack, primaryStyle: Style, secondaryStyle: Style, isPristine: Boolean = false): Component {
     if(stack.item !is SimpleEnergyItem) throw IllegalStateException("Item must implement SimpleEnergyItem!")
 
-    val energyText = Text.translatable("text.dml-refabricated.energy.prefix")
+    val energyText = Component.translatable("text.dml-refabricated.energy.prefix")
 
     val numberFormatter = formatAccordingToLanguage()
-    val energyAmountText = Text.translatable(
+    val energyAmountText = Component.translatable(
         "tooltip.dml-refabricated.data_amount.2",
         numberFormatter.format((stack.item as SimpleEnergyItem).getStoredEnergy(stack)),
         numberFormatter.format((stack.item as SimpleEnergyItem).getEnergyCapacity(stack))
     )
-    val formattedEnergyAmountText = Text.translatable(getShortEnergyKey(isPristine), energyAmountText)
+    val formattedEnergyAmountText = Component.translatable(getShortEnergyKey(isPristine), energyAmountText)
 
     return getInfoText(energyText, formattedEnergyAmountText, primaryStyle, secondaryStyle)
 }
@@ -306,13 +307,13 @@ fun getShortEnergyKey(isPristine: Boolean): String {
 }
 
 
-fun getEmptyAndFullCapacityEnergyItem(item: ItemConvertible): List<ItemStack> {
+fun getEmptyAndFullCapacityEnergyItem(item: ItemLike): List<ItemStack> {
     return listOf(getFullCapacityStack(item), ItemStack(item))
 }
 
-fun getFullCapacityStack(item: ItemConvertible): ItemStack {
+fun getFullCapacityStack(item: ItemLike): ItemStack {
     if(item !is SimpleEnergyItem) throw IllegalStateException("Item must implement SimpleEnergyItem!")
     val stack = ItemStack(item)
-    stack.orCreateNbt.putLong(ENERGY_KEY, (item as SimpleEnergyItem).getEnergyCapacity(stack))
+    item.setStoredEnergy(stack, item.getEnergyCapacity(stack))
     return stack
 }

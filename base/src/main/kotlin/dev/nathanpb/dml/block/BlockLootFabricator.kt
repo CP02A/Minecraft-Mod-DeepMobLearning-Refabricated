@@ -22,91 +22,73 @@ package dev.nathanpb.dml.block
 import dev.nathanpb.dml.blockEntity.BlockEntityLootFabricator
 import dev.nathanpb.dml.screen.handler.LootFabricatorScreenHandler
 import dev.nathanpb.dml.screen.handler.LootFabricatorScreenHandlerFactory
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.*
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.Properties
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.ItemScatterer
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
-import net.minecraft.world.WorldAccess
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.Containers
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.EntityBlock
+import net.minecraft.world.level.block.HorizontalDirectionalBlock
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.phys.BlockHitResult
 
-class BlockLootFabricator : HorizontalFacingBlock (
-    FabricBlockSettings.create()
-        .strength(5F, 6F)
-), InventoryProvider, BlockEntityProvider {
+class BlockLootFabricator(properties: Properties) : HorizontalDirectionalBlock(
+    properties.strength(5F, 6F)
+), WorldlyContainerHolder, EntityBlock {
 
     init {
-        defaultState = stateManager.defaultState
-            .with(Properties.HORIZONTAL_FACING, Direction.NORTH)
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH))
     }
 
-    override fun <T : BlockEntity?> getTicker(
-        world: World,
-        state: BlockState?,
-        type: BlockEntityType<T>?
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : BlockEntity> getTicker(
+        world: Level,
+        state: BlockState,
+        type: BlockEntityType<T>
     ): BlockEntityTicker<T>? {
-        return if(!world.isClient) BlockEntityLootFabricator.ticker as BlockEntityTicker<T> else null
+        return if (world.isClientSide) null else BlockEntityLootFabricator.ticker as BlockEntityTicker<T>
     }
 
-    override fun onUse(state: BlockState?, world: World?, pos: BlockPos, player: PlayerEntity?, hand: Hand?, hit: BlockHitResult?): ActionResult {
-        if (world?.isClient == false && pos != null) {
-            player?.openHandledScreen(LootFabricatorScreenHandlerFactory(pos) { syncId, inventory, context ->
+    override fun useWithoutItem(state: BlockState, world: Level, pos: BlockPos, player: Player, hit: BlockHitResult): InteractionResult {
+        if (!world.isClientSide) {
+            player.openMenu(LootFabricatorScreenHandlerFactory(pos) { syncId, inventory, context ->
                 LootFabricatorScreenHandler(syncId, inventory, context)
             })
         }
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
-    override fun onStateReplaced(state: BlockState, world: World, pos: BlockPos?, newState: BlockState, moved: Boolean) {
-        if (state.block !== newState.block) {
-            val blockEntity = world.getBlockEntity(pos)
-            if (blockEntity is BlockEntityLootFabricator) {
-                ItemScatterer.spawn(world, pos, blockEntity.inventory)
-                ItemScatterer.spawn(world, pos, blockEntity.bufferedInternalInventory)
-
-                world.updateComparators(pos, this)
-            }
-            super.onStateReplaced(state, world, pos, newState, moved)
-        }
+    override fun affectNeighborsAfterRemoval(state: BlockState, world: ServerLevel, pos: BlockPos, movedByPiston: Boolean) {
+        Containers.updateNeighboursAfterDestroy(state, world, pos)
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>?) {
-        builder?.add(Properties.HORIZONTAL_FACING)
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        builder.add(FACING)
     }
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState {
-        var blockState = defaultState
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState = horizontalPlacementState(this, ctx)
 
-        for(direction in ctx.placementDirections) {
-            if(direction.axis.isHorizontal) {
-                blockState = blockState.with(FACING, direction.opposite)
-                if(blockState.canPlaceAt(ctx.world, ctx.blockPos)) return blockState
-            }
-        }
-        return blockState.with(FACING, Direction.NORTH)
-    }
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity = BlockEntityLootFabricator(pos, state)
 
-    override fun createBlockEntity(pos: BlockPos, state: BlockState): BlockEntity = BlockEntityLootFabricator(pos, state)
-
-    override fun getInventory(state: BlockState, world: WorldAccess, pos: BlockPos): SidedInventory {
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos): WorldlyContainer {
         return (world.getBlockEntity(pos) as BlockEntityLootFabricator).inventory
     }
 
-    override fun hasComparatorOutput(state: BlockState?) = true
+    override fun hasAnalogOutputSignal(state: BlockState) = true
 
-    override fun getComparatorOutput(state: BlockState?, world: World?, pos: BlockPos?): Int {
-        return ScreenHandler.calculateComparatorOutput(world?.getBlockEntity(pos))
+    override fun getAnalogOutputSignal(state: BlockState, world: Level, pos: BlockPos, direction: Direction): Int {
+        return AbstractContainerMenu.getRedstoneSignalFromContainer((world.getBlockEntity(pos) as? BlockEntityLootFabricator)?.inventory)
     }
 }

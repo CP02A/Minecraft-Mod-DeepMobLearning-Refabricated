@@ -2,12 +2,12 @@ package dev.nathanpb.dml.screen.handler.slot
 
 import io.github.cottonmc.cotton.gui.widget.WItemSlot
 import io.github.cottonmc.cotton.gui.widget.icon.TextureIcon
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.inventory.Inventory
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.Container
 import kotlin.math.min
 
 open class WCyclingSlot(
-    private val inventory: Inventory,
+    private val inventory: Container,
     private val index: Int,
     private var icons: List<TextureIcon>,
     big: Boolean = false
@@ -23,7 +23,7 @@ open class WCyclingSlot(
         updateTexture(icons)
     }
 
-    override fun paint(context: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         if(backgroundPainter != null) {
             backgroundPainter!!.paintBackground(context, x, y, this)
         }

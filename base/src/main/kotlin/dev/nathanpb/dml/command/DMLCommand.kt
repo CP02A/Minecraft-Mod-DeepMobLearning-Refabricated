@@ -3,28 +3,33 @@ package dev.nathanpb.dml.command
 import com.mojang.brigadier.CommandDispatcher
 import dev.nathanpb.dml.utils.*
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
-import net.minecraft.command.CommandRegistryAccess
-import net.minecraft.server.command.CommandManager.RegistrationEnvironment
-import net.minecraft.server.command.CommandManager.literal
-import net.minecraft.server.command.ServerCommandSource
-import net.minecraft.text.*
-import net.minecraft.util.Formatting
+import net.minecraft.commands.CommandBuildContext
+import net.minecraft.commands.Commands.CommandSelection
+import net.minecraft.commands.Commands.literal
+import java.net.URI
+import net.minecraft.commands.CommandSourceStack
+import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.ClickEvent
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.HoverEvent
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Style
 
 
 class DMLCommand: CommandRegistrationCallback {
 
     override fun register(
-        dispatcher: CommandDispatcher<ServerCommandSource>,
-        registryAccess: CommandRegistryAccess?,
-        environment: RegistrationEnvironment?
+        dispatcher: CommandDispatcher<CommandSourceStack>,
+        registryAccess: CommandBuildContext,
+        environment: CommandSelection
     ) {
         dispatcher.register(literal("dml-refabricated")
             // Modules
             .then(literal("modules")
                 .executes {
-                    it.source.sendMessage(appendModuleText(BASE_ID, "Base"))
-                    it.source.sendMessage(appendModuleText(MODULAR_ARMOR_ID, "Glitch Armor"))
-                    it.source.sendMessage(appendModuleText(SIMULACRUM_ID, "Simulacrum"))
+                    it.source.sendSystemMessage(appendModuleText(BASE_ID, "Base"))
+                    it.source.sendSystemMessage(appendModuleText(MODULAR_ARMOR_ID, "Glitch Armor"))
+                    it.source.sendSystemMessage(appendModuleText(SIMULACRUM_ID, "Simulacrum"))
                     return@executes 1
                 }
             )
@@ -45,13 +50,13 @@ class DMLCommand: CommandRegistrationCallback {
                     }
                 }
 
-                it.source.sendMessage(coloredText("-=  ", true).append(coloredText("${metadata.name} v${metadata.version}")).append(coloredText("  =-", true)))
-                it.source.sendMessage(coloredText("Original mod by ").append(coloredText("IterationFunk", true)))
-                it.source.sendMessage(coloredText("Reimagining/port by ").append(coloredText(authors, true)))
-                it.source.sendMessage(coloredText("With contributions of ").append(coloredText(contributors, true)))
-                if(it.source.isExecutedByPlayer) {
-                    it.source.sendMessage(Text.empty())
-                    it.source.sendMessage(
+                it.source.sendSystemMessage(coloredText("-=  ", true).append(coloredText("${metadata.name} v${metadata.version}")).append(coloredText("  =-", true)))
+                it.source.sendSystemMessage(coloredText("Original mod by ").append(coloredText("IterationFunk", true)))
+                it.source.sendSystemMessage(coloredText("Reimagining/port by ").append(coloredText(authors, true)))
+                it.source.sendSystemMessage(coloredText("With contributions of ").append(coloredText(contributors, true)))
+                if(it.source.isPlayer) {
+                    it.source.sendSystemMessage(Component.empty())
+                    it.source.sendSystemMessage(
                         hyperlink("CurseForge", "https://curseforge.com/minecraft/mc-mods/deep-mob-learning-refabricated", 0xF46434).append(
                         " ").append(
                         hyperlink("Modrinth", "https://modrinth.com/mod/deep-mob-learning-refabricated", 0x1CD368)).append(
@@ -66,32 +71,32 @@ class DMLCommand: CommandRegistrationCallback {
     }
 
 
-    private fun appendModuleText(modId: String, fancyName: String): Text {
+    private fun appendModuleText(modId: String, fancyName: String): Component {
         val isLoaded = isModLoaded(modId)
         val version: String = getModContainer(modId).let {
             if(it != null) "v${it.metadata.version}" else ""
         }
 
         return coloredText("- [")
-            .append(Text.literal(if(isLoaded) "✔" else "✕").formatted(if(isLoaded) Formatting.GREEN else Formatting.RED))
+            .append(Component.literal(if(isLoaded) "✔" else "✕").withStyle(if(isLoaded) ChatFormatting.GREEN else ChatFormatting.RED))
             .append(coloredText("] "))
             .append(coloredText("$fancyName $version"))
     }
 
-    private fun coloredText(message: String): MutableText {
+    private fun coloredText(message: String): MutableComponent {
         return coloredText(message, false)
     }
 
-    private fun coloredText(message: String, altStyle: Boolean): MutableText {
-        return Text.literal(message).styled { if(altStyle) RenderUtils.ALT_STYLE else RenderUtils.STYLE }
+    private fun coloredText(message: String, altStyle: Boolean): MutableComponent {
+        return Component.literal(message).setStyle(if(altStyle) RenderUtils.ALT_STYLE else RenderUtils.STYLE)
     }
 
-    private fun hyperlink(title: String, url: String, color: Int): MutableText {
-        return Text.literal("[$title]").styled { Style.EMPTY
-                .withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                .withHoverEvent(HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("Click to open link").styled { Style.EMPTY.withColor(color) }))
+    private fun hyperlink(title: String, url: String, color: Int): MutableComponent {
+        return Component.literal("[$title]").setStyle(Style.EMPTY
+                .withClickEvent(ClickEvent.OpenUrl(URI.create(url)))
+                .withHoverEvent(HoverEvent.ShowText(Component.literal("Click to open link").setStyle(Style.EMPTY.withColor(color))))
                 .withColor(color)
                 .withBold(true)
-        }
+        )
     }
 }

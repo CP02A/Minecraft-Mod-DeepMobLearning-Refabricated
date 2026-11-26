@@ -21,13 +21,16 @@
 package dev.nathanpb.dml.screen.handler
 
 import dev.nathanpb.dml.identifier
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType
-import net.fabricmc.fabric.api.screenhandler.v1.ScreenHandlerRegistry
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.util.Hand
-import net.minecraft.util.Identifier
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuType
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.resources.Identifier
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerLevelAccess
 
 val HANDLER_DEEP_LEARNER = registerScreenHandlerForItemStack(identifier("deep_learner"), ::DeepLearnerScreenHandler)
 val HANDLER_DATA_SYNTHESIZER = registerScreenHandlerForBlockEntity(identifier("data_synthesizer"), ::DataSynthesizerScreenHandler)
@@ -35,23 +38,24 @@ val HANDLER_LOOT_FABRICATOR = registerScreenHandlerForBlockEntity(identifier("lo
 
 val HANDLER_DISRUPTIONS_CORE = registerScreenHandlerForBlockEntity(identifier("disruptions_core"), ::DisruptionsCoreScreenHandler)
 
-// TODO: Replace with non-deprecated version
-fun <T: ScreenHandler>registerScreenHandlerForBlockEntity(
+/** A menu of a block: the client gets the block position when the menu opens. */
+fun <T: AbstractContainerMenu>registerScreenHandlerForBlockEntity(
     id: Identifier,
-    f: (Int, PlayerInventory, ScreenHandlerContext) -> T
-): ExtendedScreenHandlerType<T> {
-    return ScreenHandlerRegistry.registerExtended(id) { syncId, inventory, buf ->
-        f(syncId, inventory, ScreenHandlerContext.create(inventory.player.world, buf.readBlockPos()))
-    } as ExtendedScreenHandlerType<T>
+    f: (Int, Inventory, ContainerLevelAccess) -> T
+): ExtendedMenuType<T, BlockPos> {
+    return Registry.register(BuiltInRegistries.MENU, id, ExtendedMenuType({ syncId, inventory, pos ->
+        f(syncId, inventory, ContainerLevelAccess.create(inventory.player.level(), pos))
+    }, BlockPos.STREAM_CODEC))
 }
 
-fun <T: ScreenHandler>registerScreenHandlerForItemStack(
+/** A menu of the item in a hand: the client gets the hand when the menu opens. */
+fun <T: AbstractContainerMenu>registerScreenHandlerForItemStack(
     id: Identifier,
-    f: (Int, PlayerInventory, Hand) -> T
-): ExtendedScreenHandlerType<T> {
-    return ScreenHandlerRegistry.registerExtended(id) { syncId, inventory, buf ->
-        f(syncId, inventory, Hand.values()[buf.readInt()])
-    } as ExtendedScreenHandlerType<T>
+    f: (Int, Inventory, InteractionHand) -> T
+): ExtendedMenuType<T, InteractionHand> {
+    return Registry.register(BuiltInRegistries.MENU, id, ExtendedMenuType({ syncId, inventory, hand ->
+        f(syncId, inventory, hand)
+    }, InteractionHand.STREAM_CODEC))
 }
 
 fun registerScreenHandlers() {

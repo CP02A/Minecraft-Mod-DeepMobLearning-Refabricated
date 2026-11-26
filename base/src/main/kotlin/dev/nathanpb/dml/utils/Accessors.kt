@@ -21,8 +21,8 @@ package dev.nathanpb.dml.utils
 
 import dev.nathanpb.dml.accessor.ITrialWorldPersistenceAccessor
 import dev.nathanpb.dml.trial.Trial
-import net.minecraft.world.World
+import net.minecraft.world.level.Level
 
 
-val World.runningTrials: MutableList<Trial>
-    get() = (this as ITrialWorldPersistenceAccessor).runningTrials
+val Level.runningTrials: MutableList<Trial>
+    get() = (this as ITrialWorldPersistenceAccessor).`dml$getRunningTrials`()

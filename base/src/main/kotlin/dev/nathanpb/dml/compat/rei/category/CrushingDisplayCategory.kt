@@ -19,8 +19,9 @@
 
 package dev.nathanpb.dml.compat.rei.category
 
+import net.minecraft.world.item.component.SwingAnimation
 import dev.nathanpb.dml.MOD_ID
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import dev.nathanpb.dml.compat.rei.ReiCategories
 import dev.nathanpb.dml.compat.rei.display.CrushingRecipeDisplay
 import dev.nathanpb.dml.compat.rei.itemStack
 import dev.nathanpb.dml.compat.rei.widgets.EntityDisplayWidget
@@ -33,22 +34,22 @@ import me.shedaniel.rei.api.client.registry.display.DisplayCategory
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
 import me.shedaniel.rei.api.common.entry.EntryStack
 import me.shedaniel.rei.api.common.util.EntryStacks
-import net.minecraft.client.MinecraftClient
-import net.minecraft.item.ItemStack
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
-import net.minecraft.util.Hand
-import net.minecraft.util.Identifier
+import net.minecraft.client.Minecraft
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionHand
+import net.minecraft.resources.Identifier
 
 class CrushingDisplayCategory: DisplayCategory<CrushingRecipeDisplay> {
 
-    override fun getIdentifier(): Identifier = ReiPlugin.CRUSHING_CATEGORY.identifier
+    override fun getIdentifier(): Identifier = ReiCategories.CRUSHING_CATEGORY.identifier
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<out CrushingRecipeDisplay> = ReiPlugin.CRUSHING_CATEGORY
+    override fun getCategoryIdentifier(): CategoryIdentifier<out CrushingRecipeDisplay> = ReiCategories.CRUSHING_CATEGORY
 
     override fun getIcon(): EntryStack<ItemStack> = EntryStacks.of(ITEM_SOOT_REDSTONE)
 
-    override fun getTitle(): MutableText = Text.translatable("rei.${MOD_ID}.category.crushing")
+    override fun getTitle(): MutableComponent = Component.translatable("rei.${MOD_ID}.category.crushing")
 
 
     override fun setupDisplay(recipeDisplay: CrushingRecipeDisplay, bounds: Rectangle): MutableList<Widget> {
@@ -69,7 +70,7 @@ class CrushingDisplayCategory: DisplayCategory<CrushingRecipeDisplay> {
             blockSlot,
             Widgets.createSlot(Point(startPoint.x + 80, startPoint.y + 38)).entries(output.flatten())
         ).also { widgets ->
-            MinecraftClient.getInstance().player?.let { player -> // FIXME swing is seen on actual player
+            Minecraft.getInstance().player?.let { player -> // FIXME swing is seen on actual player
                 EntityDisplayWidget(
                     listOf(player),
                     startPoint.x + 24,
@@ -78,7 +79,7 @@ class CrushingDisplayCategory: DisplayCategory<CrushingRecipeDisplay> {
                     -120F,
                     16,
                     recipeDisplay.inputEntries.flatten().random().itemStack()
-                ) { it.swingHand(Hand.MAIN_HAND) }.let {
+                ) { it.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false) }.let {
                     widgets += Widgets.wrapVanillaWidget(it)
                 }
             }

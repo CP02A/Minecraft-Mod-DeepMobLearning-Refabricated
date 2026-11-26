@@ -1,17 +1,19 @@
 package dev.nathanpb.dml.blockEntity
 
-import com.google.common.base.Preconditions
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.client.world.ClientWorld
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.network.listener.ClientPlayPacketListener
-import net.minecraft.network.packet.Packet
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.math.BlockPos
-
+import com.mojang.serialization.Codec
+import net.minecraft.client.multiplayer.ClientLevel
+import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
 
 /* A special implementation of BlockEntity, syncing nbt data to client, as a fix to old BEs using the now removed BlockEntityClientSerializable.
 *
@@ -25,57 +27,69 @@ abstract class ClientSyncedBlockEntity(
 
     @JvmOverloads
     fun sync(shouldRemesh: Boolean = true) {
-        Preconditions.checkNotNull(world) // Maintain distinct failure case from below
-        check(world is ServerWorld) { "Cannot call sync() on the logical client! Did you check world.isClient first?" }
+        val world = checkNotNull(level) // Maintain distinct failure case from below
+        check(world is ServerLevel) { "Cannot call sync() on the logical client! Did you check world.isClient first?" }
         shouldClientRemesh = shouldRemesh or shouldClientRemesh
-        (world as ServerWorld).chunkManager.markForUpdate(pos)
+        world.chunkSource.blockChanged(blockPos)
     }
 
-    abstract fun toTag(nbt: NbtCompound)
-    abstract fun fromTag(nbt: NbtCompound)
+    abstract fun toTag(output: ValueOutput)
+    abstract fun fromTag(input: ValueInput)
 
-    abstract fun toClientTag(nbt: NbtCompound)
-    abstract fun fromClientTag(nbt: NbtCompound)
+    abstract fun toClientTag(output: ValueOutput)
+    abstract fun fromClientTag(input: ValueInput)
 
-    override fun toUpdatePacket(): Packet<ClientPlayPacketListener>? {
-        return BlockEntityUpdateS2CPacket.create(this)
+    override fun getUpdatePacket(): Packet<ClientGamePacketListener>? {
+        return ClientboundBlockEntityDataPacket.create(this)
     }
 
-    override fun toInitialChunkDataNbt(): NbtCompound {
-        val nbt = super.toInitialChunkDataNbt()
-        toClientTag(nbt)
-        nbt.putBoolean("#c", shouldClientRemesh) // mark client tag
-        shouldClientRemesh = false
-        return nbt
+    override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {
+        clientTag = true
+        try {
+            val nbt = saveCustomOnly(registries)
+            nbt.putBoolean(CLIENT_TAG_KEY, shouldClientRemesh) // mark client tag
+            shouldClientRemesh = false
+            return nbt
+        } finally {
+            clientTag = false
+        }
     }
 
-    override fun writeNbt(nbt: NbtCompound) {
-        toTag(nbt)
+    override fun saveAdditional(output: ValueOutput) {
+        if(clientTag) toClientTag(output) else toTag(output)
     }
 
-    override fun readNbt(nbt: NbtCompound) {
-        if(nbt.contains("#c")) {
-            fromClientTag(nbt)
-            if(nbt.getBoolean("#c")) {
+    override fun loadAdditional(input: ValueInput) {
+        val remesh = input.read(CLIENT_TAG_KEY, Codec.BOOL)
+        if(remesh.isPresent) {
+            fromClientTag(input)
+            if(remesh.get()) {
                 remesh()
             }
         } else {
-            fromTag(nbt)
+            fromTag(input)
         }
     }
 
     fun remesh() {
-        Preconditions.checkNotNull(world)
-        check(world is ClientWorld) { "Cannot call remesh() on the server!" }
-        (world as ClientWorld).updateListeners(pos, null, null, 0)
+        val world = checkNotNull(level)
+        check(world is ClientLevel) { "Cannot call remesh() on the server!" }
+        world.sendBlockUpdated(blockPos, blockState, blockState, 0)
     }
 
     protected val isClientSide: Boolean
         get() {
-            checkNotNull(world) { "Cannot determine if the BE is client-side if it has no world yet" }
-            return world!!.isClient()
+            checkNotNull(level) { "Cannot determine if the BE is client-side if it has no world yet" }
+            return level!!.isClientSide()
         }
 
     private var shouldClientRemesh = true
+
+    /** True while [getUpdateTag] writes the tag for the client. */
+    private var clientTag = false
+
+    companion object {
+        private const val CLIENT_TAG_KEY = "#c"
+    }
 
 }

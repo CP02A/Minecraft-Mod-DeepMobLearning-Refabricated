@@ -19,94 +19,78 @@
 
 package dev.nathanpb.dml.block
 
-import dev.nathanpb.dml.MOD_ID
-import dev.nathanpb.dml.utils.RenderUtils
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.*
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.item.ItemStack
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.Properties
-import net.minecraft.text.Text
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
-import net.minecraft.world.BlockView
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.HorizontalDirectionalBlock
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.material.MapColor
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.phys.shapes.VoxelShape
 
-class BlockCafeteria : HorizontalFacingBlock(
-    FabricBlockSettings.create()
-        .hardness(1F)
-        .resistance(.5F)
-        .nonOpaque()
-        .mapColor(MapColor.YELLOW)
+class BlockCafeteria(properties: Properties) : HorizontalDirectionalBlock(
+    properties
+        .destroyTime(1F)
+        .explosionResistance(.5F)
+        .noOcclusion()
+        .mapColor(MapColor.COLOR_YELLOW)
 ) {
     init {
-        defaultState = stateManager.defaultState.with(Properties.HORIZONTAL_FACING, Direction.NORTH)
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH))
     }
 
-    override fun appendTooltip(
-        stack: ItemStack?,
-        world: BlockView?,
-        tooltip: MutableList<Text>,
-        options: TooltipContext?
-    ) {
-        if(world != null) {
-            Text.translatable("tooltip.${MOD_ID}.cafeteria.joinus").setStyle(RenderUtils.STYLE).append(
-            Text.of("https://discord.gg/G4PjhEf").copy().setStyle(RenderUtils.ALT_STYLE)
-            ).let {
-                tooltip.add(it)
-            }
-        }
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        builder.add(FACING)
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>?) {
-        builder?.add(Properties.HORIZONTAL_FACING)
-    }
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState = horizontalPlacementState(this, ctx)
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState {
-        var blockState = defaultState
-
-        for(direction in ctx.placementDirections) {
-            if(direction.axis.isHorizontal) {
-                blockState = blockState.with(FACING, direction.opposite)
-                if(blockState.canPlaceAt(ctx.world, ctx.blockPos)) return blockState
-            }
-        }
-        return blockState.with(FACING, Direction.NORTH)
-    }
-
-
-    override fun getOutlineShape(
-        state: BlockState?,
-        world: BlockView?,
-        pos: BlockPos?,
-        context: ShapeContext?
-    ): VoxelShape? {
-        return when(state?.get(FACING)) {
+    override fun getShape(
+        state: BlockState,
+        world: BlockGetter,
+        pos: BlockPos,
+        context: CollisionContext
+    ): VoxelShape {
+        return when(state.getValue(FACING)) {
             Direction.NORTH -> cafeteriaNorth
             Direction.SOUTH -> cafeteriaSouth
             Direction.WEST -> cafeteriaWest
             Direction.EAST -> cafeteriaEast
-            else -> VoxelShapes.empty()
+            else -> Shapes.empty()
         }
     }
 
-    private val baseNorth: VoxelShape = Block.createCuboidShape(4.0, 0.0, 2.0, 16.0, 12.0, 14.0)
-    private val handleNorth: VoxelShape = Block.createCuboidShape(0.0, 2.0, 7.0, 4.0, 10.0, 9.0)
-    private val cafeteriaNorth: VoxelShape = VoxelShapes.union(baseNorth, handleNorth)
+    private val baseNorth: VoxelShape = box(4.0, 0.0, 2.0, 16.0, 12.0, 14.0)
+    private val handleNorth: VoxelShape = box(0.0, 2.0, 7.0, 4.0, 10.0, 9.0)
+    private val cafeteriaNorth: VoxelShape = Shapes.or(baseNorth, handleNorth)
 
-    private val baseSouth: VoxelShape = Block.createCuboidShape(0.0, 0.0, 2.0, 12.0, 12.0, 14.0)
-    private val handleSouth: VoxelShape = Block.createCuboidShape(12.0, 2.0, 7.0, 16.0, 10.0, 9.0)
-    private val cafeteriaSouth: VoxelShape = VoxelShapes.union(baseSouth, handleSouth)
+    private val baseSouth: VoxelShape = box(0.0, 0.0, 2.0, 12.0, 12.0, 14.0)
+    private val handleSouth: VoxelShape = box(12.0, 2.0, 7.0, 16.0, 10.0, 9.0)
+    private val cafeteriaSouth: VoxelShape = Shapes.or(baseSouth, handleSouth)
 
-    private val baseWest: VoxelShape = Block.createCuboidShape(2.0, 0.0, 0.0, 14.0, 12.0, 12.0)
-    private val handleWest: VoxelShape = Block.createCuboidShape(7.0, 2.0, 12.0, 9.0, 10.0, 16.0)
-    private val cafeteriaWest: VoxelShape = VoxelShapes.union(baseWest, handleWest)
+    private val baseWest: VoxelShape = box(2.0, 0.0, 0.0, 14.0, 12.0, 12.0)
+    private val handleWest: VoxelShape = box(7.0, 2.0, 12.0, 9.0, 10.0, 16.0)
+    private val cafeteriaWest: VoxelShape = Shapes.or(baseWest, handleWest)
 
-    private val baseEast: VoxelShape = Block.createCuboidShape(2.0, 0.0, 4.0, 14.0, 12.0, 16.0)
-    private val handleEast: VoxelShape = Block.createCuboidShape(7.0, 2.0, 0.0, 9.0, 10.0, 4.0)
-    private val cafeteriaEast: VoxelShape = VoxelShapes.union(baseEast, handleEast)
+    private val baseEast: VoxelShape = box(2.0, 0.0, 4.0, 14.0, 12.0, 16.0)
+    private val handleEast: VoxelShape = box(7.0, 2.0, 0.0, 9.0, 10.0, 4.0)
+    private val cafeteriaEast: VoxelShape = Shapes.or(baseEast, handleEast)
 
+}
+
+/** Faces the player: the first horizontal direction the player looks at (opposite) where the block can survive. */
+fun horizontalPlacementState(block: Block, ctx: BlockPlaceContext): BlockState {
+    var blockState = block.defaultBlockState()
+
+    for(direction in ctx.nearestLookingDirections) {
+        if(direction.axis.isHorizontal) {
+            blockState = blockState.setValue(HorizontalDirectionalBlock.FACING, direction.opposite)
+            if(blockState.canSurvive(ctx.level, ctx.clickedPos)) return blockState
+        }
+    }
+    return blockState.setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH)
 }

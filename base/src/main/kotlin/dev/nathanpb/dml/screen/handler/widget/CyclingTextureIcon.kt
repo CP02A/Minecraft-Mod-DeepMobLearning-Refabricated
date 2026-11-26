@@ -4,8 +4,8 @@ import io.github.cottonmc.cotton.gui.client.ScreenDrawing
 import io.github.cottonmc.cotton.gui.widget.icon.Icon
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.util.Identifier
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.resources.Identifier
 
 class CyclingTextureIcon(
     private val icons: List<Identifier>
@@ -16,7 +16,7 @@ class CyclingTextureIcon(
 
     @Environment(EnvType.CLIENT)
     @Override
-    override fun paint(context: DrawContext, x: Int, y: Int, size: Int) {
+    override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, size: Int) {
         if(++timer % 45 == 0) {
             iconIndex = (iconIndex + 1) % icons.size
         }

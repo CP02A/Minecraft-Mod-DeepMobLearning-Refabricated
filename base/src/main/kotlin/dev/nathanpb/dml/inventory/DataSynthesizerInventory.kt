@@ -19,24 +19,23 @@
 
 package dev.nathanpb.dml.inventory
 
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.util.math.Direction
+import net.minecraft.core.Direction
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.item.ItemStack
 
-
-class DataSynthesizerInventory : SimpleInventory(3), SidedInventory {
+class DataSynthesizerInventory : SimpleContainer(3), WorldlyContainer {
 
     companion object {
         const val INPUT_SLOT = 0
     }
 
     val dataModelStack: ItemStack
-        get() = getStack(INPUT_SLOT)
+        get() = getItem(INPUT_SLOT)
 
-    override fun canExtract(slot: Int, stack: ItemStack, dir: Direction) = false
+    override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, dir: Direction) = false
 
-    override fun canInsert(slot: Int, stack: ItemStack, dir: Direction?) = false
+    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, dir: Direction?) = false
 
-    override fun getAvailableSlots(side: Direction) = intArrayOf()
+    override fun getSlotsForFace(side: Direction) = intArrayOf()
 }

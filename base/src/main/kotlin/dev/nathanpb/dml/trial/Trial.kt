@@ -31,26 +31,31 @@ import dev.nathanpb.dml.item.ITEM_EMERITUS_HAT
 import dev.nathanpb.dml.recipe.TrialKeystoneRecipe
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
 import dev.nathanpb.dml.utils.*
-import net.minecraft.entity.*
-import net.minecraft.entity.boss.BossBar
-import net.minecraft.entity.boss.ServerBossBar
-import net.minecraft.entity.mob.HostileEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
-import net.minecraft.util.TypeFilter
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.world.BossEvent
+import net.minecraft.server.level.ServerBossEvent
+import net.minecraft.world.entity.monster.Monster
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.sounds.SoundSource
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Component
+import net.minecraft.world.level.entity.EntityTypeTest
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import java.util.*
 import kotlin.random.Random
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.EntitySpawnReason
+import net.minecraft.network.protocol.game.ClientboundSoundPacket
+import net.minecraft.world.entity.item.ItemEntity
 
 class Trial (
-    val world: World,
+    val world: Level,
     val pos: BlockPos,
     val recipe: TrialKeystoneRecipe,
     val players: HashSet<UUID>,
@@ -63,8 +68,8 @@ class Trial (
         players: List<UUID>,
         affixes: List<TrialAffix>
     ): this(
-        keystone.world!!,
-        keystone.pos,
+        keystone.level!!,
+        keystone.blockPos,
         recipe,
         players.toHashSet(),
         affixes
@@ -85,19 +90,19 @@ class Trial (
     }
 
     companion object {
-        val BAR_TEXT: MutableText by lazy {
-            Text.translatable("bar.${MOD_ID}.trial")
+        val BAR_TEXT: MutableComponent by lazy {
+            Component.translatable("bar.${MOD_ID}.trial")
         }
 
-        val BAR_TEXT_SUCCESS: MutableText by lazy {
-            Text.translatable("bar.${MOD_ID}.trial_success")
+        val BAR_TEXT_SUCCESS: MutableComponent by lazy {
+            Component.translatable("bar.${MOD_ID}.trial_success")
         }
 
-        val BAR_TEXT_FAIL: MutableText by lazy {
-            Text.translatable("bar.${MOD_ID}.trial_fail")
+        val BAR_TEXT_FAIL: MutableComponent by lazy {
+            Component.translatable("bar.${MOD_ID}.trial_fail")
         }
-        val BAR_TEXT_FAIL_TIMEOUT: MutableText by lazy {
-            Text.translatable("bar.${MOD_ID}.trial_fail.timeout")
+        val BAR_TEXT_FAIL_TIMEOUT: MutableComponent by lazy {
+            Component.translatable("bar.${MOD_ID}.trial_fail.timeout")
         }
     }
 
@@ -114,18 +119,18 @@ class Trial (
 
 
     var tickCount = 0; private set
-    private val bar = ServerBossBar(BAR_TEXT, BossBar.Color.BLUE, BossBar.Style.NOTCHED_10).also {
+    private val bar = ServerBossEvent(UUID.randomUUID(), BAR_TEXT, BossEvent.BossBarColor.BLUE, BossEvent.BossBarOverlay.NOTCHED_10).also {
         it.isVisible = false
     }
 
     fun tick() {
-        if (!world.isClient && state != TrialState.NOT_STARTED) {
+        if (!world.isClientSide && state != TrialState.NOT_STARTED) {
             if (state in arrayOf(TrialState.WARMUP, TrialState.RUNNING)) {
                 // Resyncs which players will have the bossbar every second
                 if (tickCount % 20 == 0) {
-                    bar.clearPlayers()
+                    bar.removeAllPlayers()
                     world.getPlayersByUUID(players)
-                        .filterIsInstance<ServerPlayerEntity>()
+                        .filterIsInstance<ServerPlayer>()
                         .forEach(bar::addPlayer)
                 }
 
@@ -139,14 +144,14 @@ class Trial (
 
                         systemGlitch?.let { systemGlitch ->
                             if (!baseConfig.trial.allowPlayersLeavingArena) {
-                                val glitchPos = systemGlitch.pos.toBlockPos()
+                                val glitchPos = systemGlitch.blockPosition()
                                 if (glitchPos.y < pos.y || !TrialGriefPrevention.isInArea(pos, glitchPos)) {
                                     pos.toVec3d().apply {
-                                        systemGlitch.teleport(x, y, z)
+                                        systemGlitch.teleportTo(x, y, z)
                                     }
                                 }
                             }
-                            bar.percent = systemGlitch.health / systemGlitch.maxHealth
+                            bar.progress = systemGlitch.health / systemGlitch.maxHealth
                         }
 
                         if (systemGlitch?.isAlive != true) {
@@ -170,17 +175,17 @@ class Trial (
                             world.playSound(
                                 null,
                                 pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(),
-                                SoundEvents.BLOCK_NOTE_BLOCK_BASS,
-                                SoundCategory.BLOCKS,
-                                1F, 1F, pos.asLong()
+                                SoundEvents.NOTE_BLOCK_BASS,
+                                SoundSource.BLOCKS,
+                                1F, 1F
                             )
                         } else if (tickCount % 20 == 0) {
                             world.playSound(
                                 null,
                                 pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(),
-                                SoundEvents.BLOCK_NOTE_BLOCK_BASS,
-                                SoundCategory.BLOCKS,
-                                1.5F, .75F, pos.asLong()
+                                SoundEvents.NOTE_BLOCK_BASS,
+                                SoundSource.BLOCKS,
+                                1.5F, .75F
                             )
                         }
                     }
@@ -205,19 +210,19 @@ class Trial (
             when (reason) {
                 TrialEndReason.SUCCESS -> {
                     world.getPlayersByUUID(players).forEach {
-                        it.sendMessage(BAR_TEXT_SUCCESS, false)
+                        it.sendSystemMessage(BAR_TEXT_SUCCESS)
                     }
                     dropRewards()
                 }
                 TrialEndReason.NO_ONE_IS_AROUND -> {
                     world.getPlayersByUUID(players).forEach {
-                        it.sendMessage(BAR_TEXT_FAIL, false)
+                        it.sendSystemMessage(BAR_TEXT_FAIL)
                     }
                     playFailSounds()
                 }
                 TrialEndReason.TIMED_OUT -> {
                     world.getPlayersByUUID(players).forEach {
-                        it.sendMessage(BAR_TEXT_FAIL_TIMEOUT, false)
+                        it.sendSystemMessage(BAR_TEXT_FAIL_TIMEOUT)
                     }
                     playFailSounds()
                 }
@@ -233,20 +238,25 @@ class Trial (
     }
 
     private fun playFailSounds() {
-        world.getPlayersByUUID(players).forEach {
-            it.playSound(SoundEvents.ENTITY_WITHER_SPAWN, SoundCategory.BLOCKS, 1F, 1F)
+        world.getPlayersByUUID(players).filterIsInstance<ServerPlayer>().forEach {
+            it.connection.send(ClientboundSoundPacket(
+                BuiltInRegistries.SOUND_EVENT.wrapAsHolder(SoundEvents.WITHER_SPAWN), SoundSource.BLOCKS,
+                it.x, it.y, it.z, 1F, 1F, it.random.nextLong()
+            ))
         }
     }
 
     private fun spawnSystemGlitch() {
-        (world as? ServerWorld)?.let { world ->
+        (world as? ServerLevel)?.let { world ->
             systemGlitch = SYSTEM_GLITCH_ENTITY_TYPE.spawn(
-                world, null, null, pos.add(0, 2, 0), SpawnReason.EVENT, false, false
+                world, null, null, pos.offset(0, 2, 0), EntitySpawnReason.EVENT, false, false
             )?.also {
                 it.tier = recipe.tier
                 it.health = loadedSystemGlitchHealth ?: it.maxHealth
                 if (recipe.category == EntityCategory.GHOST && recipe.tier.isMaxTier() && Random.nextFloat() < .0666 ) {
-                    it.equipStack(EquipmentSlot.HEAD, ItemStack(ITEM_EMERITUS_HAT))
+                    it.setItemSlot(EquipmentSlot.HEAD, ItemStack(ITEM_EMERITUS_HAT))
+                    // Always dropped (vanilla equipment only drops sometimes)
+                    it.setGuaranteedDrop(EquipmentSlot.HEAD)
                 }
                 it.belongsToTrial = true
             }
@@ -259,16 +269,16 @@ class Trial (
                 ItemEntity(world, x, y + 1, z, it)
             }
         }.forEach {
-            world.spawnEntity(it)
+            world.addFreshEntity(it)
         }
     }
 
     private fun spawnWave() {
-        (world as? ServerWorld)?.let { world ->
+        (world as? ServerLevel)?.let { world ->
             (0 until recipe.waveEntityCount).map {
-                val distributionTable = Registries.ENTITY_TYPE.iterateEntries(recipe.category.tagKey)
+                val distributionTable = BuiltInRegistries.ENTITY_TYPE.getTagOrEmpty(recipe.category.tagKey)
                     .associateWith {
-                        val id = Registries.ENTITY_TYPE.getId(it.value()).toString()
+                        val id = BuiltInRegistries.ENTITY_TYPE.getKey(it.value()).toString()
                         recipe.spawnRate.entries
                             .last { (k) -> k.matches(id) }
                             .value
@@ -278,8 +288,8 @@ class Trial (
                 entity.spawn(
                     world,
                     null, null,
-                    pos.add(Random.nextInt(-2, 2), 5, Random.nextInt(-2, 2)),
-                    SpawnReason.SPAWNER,
+                    pos.offset(Random.nextInt(-2, 2), 5, Random.nextInt(-2, 2)),
+                    EntitySpawnReason.SPAWNER,
                     false, false
                 )
             }.let {
@@ -291,9 +301,9 @@ class Trial (
         }
     }
 
-    fun getMonstersInArena(): List<HostileEntity> {
+    fun getMonstersInArena(): List<Monster> {
         return world.getEntitiesAroundCircle(
-            TypeFilter.instanceOf(HostileEntity::class.java),
+            EntityTypeTest.forClass(Monster::class.java),
             pos,
             baseConfig.trial.arenaRadius.toDouble()
         )

@@ -19,7 +19,8 @@
 
 package dev.nathanpb.dml.compat.rei.display
 
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import com.mojang.serialization.codecs.RecordCodecBuilder
+import dev.nathanpb.dml.compat.rei.ReiCategories
 import dev.nathanpb.dml.data.TrialKeyData
 import dev.nathanpb.dml.item.ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE
 import dev.nathanpb.dml.item.ITEM_TRIAL_KEY
@@ -27,19 +28,23 @@ import dev.nathanpb.dml.recipe.TrialKeystoneRecipe
 import dev.nathanpb.dml.utils.RenderUtils
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
 import me.shedaniel.rei.api.common.display.Display
+import me.shedaniel.rei.api.common.display.DisplaySerializer
 import me.shedaniel.rei.api.common.entry.EntryIngredient
 import me.shedaniel.rei.api.common.util.EntryIngredients
 import me.shedaniel.rei.api.common.util.EntryStacks
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Text
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.resources.Identifier
+import net.minecraft.world.item.ItemStack
+import java.util.Optional
 
 class TrialRecipeDisplay (
-    private val recipe: TrialKeystoneRecipe
+    val recipe: TrialKeystoneRecipe,
+    val id: Identifier
 ) : Display {
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<TrialRecipeDisplay> = ReiPlugin.TRIAL_CATEGORY
+    override fun getCategoryIdentifier(): CategoryIdentifier<TrialRecipeDisplay> = ReiCategories.TRIAL_CATEGORY
 
-    override fun getInputEntries() = mutableListOf(
+    override fun getInputEntries(): List<EntryIngredient> = listOf(
         EntryIngredients.of(
             ItemStack(ITEM_TRIAL_KEY).also {
                 TrialKeyData(it).apply {
@@ -54,15 +59,34 @@ class TrialRecipeDisplay (
         val rewards = recipe.copyRewards(true).map(EntryStacks::of)
 
         rewards.find {
-            stack -> stack.value.isOf(ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE)
-        }?.tooltip((recipe.tier.glitchUpgradeOddsText).styled { RenderUtils.STYLE })
+            stack -> stack.value.`is`(ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE)
+        }?.tooltip(recipe.tier.glitchUpgradeOddsText.copy().setStyle(RenderUtils.STYLE))
 
         // TODO System Glitch Head
         /*rewards.find {
-            stack -> stack.value.isOf(SYSTEM_GLITCH_HEAD.asItem())
-        }?.tooltip(Text.literal("15%").styled { RenderUtils.STYLE })*/
+            stack -> stack.value.`is`(SYSTEM_GLITCH_HEAD.asItem())
+        }?.tooltip(Component.literal("15%").styled { RenderUtils.STYLE })*/
 
         return rewards.map(EntryIngredient::of)
     }
 
+    override fun getDisplayLocation(): Optional<Identifier> = Optional.of(id)
+
+    override fun getSerializer() = SERIALIZER
+
+    companion object {
+        val SERIALIZER: DisplaySerializer<TrialRecipeDisplay> = DisplaySerializer.of(
+            RecordCodecBuilder.mapCodec { i ->
+                i.group(
+                    TrialKeystoneRecipe.CODEC.codec().fieldOf("recipe").forGetter(TrialRecipeDisplay::recipe),
+                    Identifier.CODEC.fieldOf("id").forGetter(TrialRecipeDisplay::id)
+                ).apply(i, ::TrialRecipeDisplay)
+            },
+            StreamCodec.composite(
+                TrialKeystoneRecipe.STREAM_CODEC, TrialRecipeDisplay::recipe,
+                Identifier.STREAM_CODEC, TrialRecipeDisplay::id,
+                ::TrialRecipeDisplay
+            )
+        )
+    }
 }

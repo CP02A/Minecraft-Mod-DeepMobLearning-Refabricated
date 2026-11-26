@@ -4,18 +4,18 @@ import io.github.cottonmc.cotton.gui.client.ScreenDrawing
 import io.github.cottonmc.cotton.gui.widget.WButton
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 open class WStylizedButton private constructor(
     val texture: Identifier,
     val overlayTextures: List<Identifier>?, // textures must be 20x20
-    val textLabel: Text?
+    val textLabel: Component?
 ) : WButton(textLabel) {
 
 
-    constructor(texture: Identifier, textLabel: Text) : this(texture, null, textLabel)
+    constructor(texture: Identifier, textLabel: Component) : this(texture, null, textLabel)
 
     constructor(texture: Identifier, overlayTextures: List<Identifier>) : this(texture, overlayTextures, null)
 
@@ -26,7 +26,7 @@ open class WStylizedButton private constructor(
      * Make sure to check it if anything breaks between versions!
      */
     @Environment(EnvType.CLIENT)
-    override fun paint(ctx: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    override fun paint(ctx: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         val hovered = mouseX >= 0 && mouseY >= 0 && mouseX < getWidth() && mouseY < getHeight()
         var state = 1 // 1 = regular, 2 = hovered and 0 = disabled.
         if (!isEnabled) {
@@ -77,7 +77,7 @@ open class WStylizedButton private constructor(
         if(textLabel != null) {
             ScreenDrawing.drawStringWithShadow(
                 ctx,
-                textLabel.asOrderedText(),
+                textLabel.getVisualOrderText(),
                 alignment,
                 x,
                 y + (20 - 8) / 2,

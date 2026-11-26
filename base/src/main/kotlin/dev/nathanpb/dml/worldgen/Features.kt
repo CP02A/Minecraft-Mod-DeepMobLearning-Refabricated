@@ -22,21 +22,19 @@ package dev.nathanpb.dml.worldgen
 
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.worldgen.disruption.DisruptionFeature
-import dev.nathanpb.dml.worldgen.disruption.DisruptionFeatureConfig
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectionContext
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.registry.RegistryKey
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.world.gen.GenerationStep
-import net.minecraft.world.gen.feature.Feature
-import net.minecraft.world.gen.feature.PlacedFeature
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.levelgen.GenerationStep
+import net.minecraft.world.level.levelgen.placement.PlacedFeature
 import java.util.function.Predicate
 
-
 fun registerFeatures() {
-    Registry.register(Registries.FEATURE, DISRUPTION_KEY.value, DISRUPTION_FEATURE)
+    // Since 26.1 the feature type registry holds the codecs of the (configured) features
+    Registry.register(BuiltInRegistries.FEATURE_TYPE, identifier("disruption"), DisruptionFeature.CODEC)
 
     /*addFeature(
         DISRUPTION_KEY,
@@ -48,10 +46,10 @@ fun registerFeatures() {
 }
 
 
-private fun addFeature(registryKey: RegistryKey<PlacedFeature>, biomeSelector: Predicate<BiomeSelectionContext>, enabled: Boolean) {
+@Suppress("unused")
+private fun addFeature(registryKey: ResourceKey<PlacedFeature>, biomeSelector: Predicate<BiomeSelectionContext>, enabled: Boolean) {
     if (!enabled) return
-    BiomeModifications.addFeature(biomeSelector, GenerationStep.Feature.VEGETAL_DECORATION, registryKey)
+    BiomeModifications.addFeature(biomeSelector, GenerationStep.Decoration.VEGETAL_DECORATION, registryKey)
 }
 
-val DISRUPTION_FEATURE: Feature<DisruptionFeatureConfig> = DisruptionFeature(DisruptionFeatureConfig.CODEC)
-val DISRUPTION_KEY = RegistryKey.of(RegistryKeys.PLACED_FEATURE, identifier("disruption"))
+val DISRUPTION_KEY: ResourceKey<PlacedFeature> = ResourceKey.create(Registries.PLACED_FEATURE, identifier("disruption"))

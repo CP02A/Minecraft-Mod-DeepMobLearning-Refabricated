@@ -26,15 +26,15 @@ import io.github.cottonmc.cotton.gui.SyncedGuiDescription
 import io.github.cottonmc.cotton.gui.widget.WItemSlot
 import io.github.cottonmc.cotton.gui.widget.WPlainPanel
 import io.github.cottonmc.cotton.gui.widget.data.Insets
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerContext
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerLevelAccess
 
 class DisruptionsCoreScreenHandler(
     syncId: Int,
-    playerInventory: PlayerInventory,
-    val ctx: ScreenHandlerContext
+    playerInventory: Inventory,
+    val ctx: ContainerLevelAccess
 ) : SyncedGuiDescription(
     HANDLER_DISRUPTIONS_CORE,
     syncId, playerInventory,
@@ -46,7 +46,7 @@ class DisruptionsCoreScreenHandler(
         setRootPanel(root)
         root.insets = Insets.ROOT_PANEL
 
-        val slots = WItemSlot.of(blockInventory, 0, 9, 3)
+        val slots = WItemSlot.of(blockInventory!!, 0, 9, 3)
         root.add(slots, 0, 0 + 10)
 
         root.add(createPlayerInventoryPanel(), 0, 3*18 + 13)
@@ -54,7 +54,7 @@ class DisruptionsCoreScreenHandler(
         root.validate(this)
     }
 
-    override fun canUse(player: PlayerEntity) = ScreenHandler.canUse(ctx, player, BLOCK_DISRUPTIONS_CORE)
+    override fun stillValid(player: Player) = AbstractContainerMenu.stillValid(ctx, player, BLOCK_DISRUPTIONS_CORE)
 
     override fun addPainters() {
         rootPanel.backgroundPainter = RenderUtils.DEFAULT_BACKGROUND_PAINTER

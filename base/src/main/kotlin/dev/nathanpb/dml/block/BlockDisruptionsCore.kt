@@ -4,174 +4,141 @@ import dev.nathanpb.dml.blockEntity.BLOCKENTITY_DISRUPTIONS_CORE
 import dev.nathanpb.dml.blockEntity.BlockEntityDisruptionsCore
 import dev.nathanpb.dml.screen.handler.DisruptionsCoreScreenHandler
 import dev.nathanpb.dml.screen.handler.DisruptionsCoreScreenHandlerFactory
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.*
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.mob.ShulkerEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.BooleanProperty
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.math.random.Random
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
-import net.minecraft.world.event.GameEvent
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.util.RandomSource
+import net.minecraft.world.Container
+import net.minecraft.world.Containers
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.monster.Shulker
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.BaseEntityBlock
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.RenderShape
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.BooleanProperty
+import net.minecraft.world.level.gameevent.GameEvent
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.phys.shapes.VoxelShape
 
-class BlockDisruptionsCore: BlockWithEntity(
-    FabricBlockSettings.copy(Blocks.SHULKER_BOX).luminance({ 7 }).dropsNothing()
+/** Built from a copy of the shulker box's properties (see Blocks.kt). */
+class BlockDisruptionsCore(properties: Properties): BaseEntityBlock(
+    properties.lightLevel { 7 }.noLootTable()
 ) {
 
     init {
-        defaultState = getStateManager().defaultState.with(FADING, false)
+        registerDefaultState(stateDefinition.any().setValue(FADING, false))
     }
 
     companion object {
-        val FADING = BooleanProperty.of("fading")
+        val FADING: BooleanProperty = BooleanProperty.create("fading")
     }
 
-    private val shape = createCuboidShape(0.0, 15.0, 0.0, 16.0, 16.0, 16.0)
+    private val shape = box(0.0, 15.0, 0.0, 16.0, 16.0, 16.0)
 
-    override fun onUse(
+    override fun useWithoutItem(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
-        player: PlayerEntity,
-        hand: Hand?,
+        player: Player,
         hit: BlockHitResult
-    ): ActionResult {
-        if(world.isClient) return ActionResult.SUCCESS
-        if(player.isSpectator) return ActionResult.CONSUME
+    ): InteractionResult {
+        if(world !is ServerLevel) return InteractionResult.SUCCESS
+        if(player.isSpectator) return InteractionResult.CONSUME
 
         val blockEntity = world.getBlockEntity(pos)
         if(blockEntity is BlockEntityDisruptionsCore) {
             if(canOpen(world, pos, blockEntity)) {
-                player.openHandledScreen(DisruptionsCoreScreenHandlerFactory(pos) { syncId, inventory, context ->
+                player.openMenu(DisruptionsCoreScreenHandlerFactory(pos) { syncId, inventory, context ->
                     DisruptionsCoreScreenHandler(syncId, inventory, context)
                 })
 
 
-                if(state.get(FADING)) {
-                    world.scheduleBlockTick(pos, BLOCK_DISRUPTIONS_CORE, 4*20)
+                if(state.getValue(FADING)) {
+                    world.scheduleTick(pos, BLOCK_DISRUPTIONS_CORE, 4*20)
 
-                    val belowPos = pos.down()
-                    if(world.getBlockState(belowPos).isOf(BLOCK_FADING_GLITCHED_TILE)) {
-                        world.scheduleBlockTick(belowPos, BLOCK_FADING_GLITCHED_TILE, 4*20 + 6)
+                    val belowPos = pos.below()
+                    if(world.getBlockState(belowPos).`is`(BLOCK_FADING_GLITCHED_TILE)) {
+                        world.scheduleTick(belowPos, BLOCK_FADING_GLITCHED_TILE, 4*20 + 6)
                     }
                 }
             }
-            return ActionResult.CONSUME
+            return InteractionResult.CONSUME
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
-    override fun scheduledTick(state: BlockState, world: ServerWorld, pos: BlockPos, random: Random) {
-        world.setBlockState(pos, Blocks.AIR.defaultState, Block.NOTIFY_ALL)
-        world.emitGameEvent(GameEvent.BLOCK_DESTROY, pos, GameEvent.Emitter.of(state))
+    override fun tick(state: BlockState, world: ServerLevel, pos: BlockPos, random: RandomSource) {
+        world.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), UPDATE_ALL)
+        world.gameEvent(GameEvent.BLOCK_DESTROY, pos, GameEvent.Context.of(state))
     }
 
-    override fun createBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return BlockEntityDisruptionsCore(pos, state)
     }
 
-    override fun <T : BlockEntity?> getTicker(
-        world: World,
+    override fun <T : BlockEntity> getTicker(
+        world: Level,
         state: BlockState,
         type: BlockEntityType<T>
     ): BlockEntityTicker<T>? {
-        return checkType(
-            type, BLOCKENTITY_DISRUPTIONS_CORE
-        ) { world: World, pos: BlockPos, state: BlockState, blockEntity: BlockEntityDisruptionsCore ->
-            BlockEntityDisruptionsCore.tick(
-                world,
-                pos,
-                state,
-                blockEntity
-            )
-        }
+        return createTickerHelper(type, BLOCKENTITY_DISRUPTIONS_CORE, BlockEntityDisruptionsCore::tick)
     }
 
-    override fun getRenderType(state: BlockState): BlockRenderType {
-        return BlockRenderType.ENTITYBLOCK_ANIMATED
+    override fun getRenderShape(state: BlockState): RenderShape {
+        return RenderShape.INVISIBLE
     }
 
-    private fun canOpen(world: World, pos: BlockPos, entity: BlockEntityDisruptionsCore): Boolean {
+    private fun canOpen(world: Level, pos: BlockPos, entity: BlockEntityDisruptionsCore): Boolean {
         if(entity.animationStage != BlockEntityDisruptionsCore.AnimationStage.CLOSED) return true
-        val box = ShulkerEntity.calculateBoundingBox(Direction.UP, 0.0f, 0.5f).offset(pos).contract(1.0E-6)
-        return world.isSpaceEmpty(box)
+        val box = Shulker.getProgressAabb(1.0F, Direction.UP, 0.5f, Vec3.atBottomCenterOf(pos)).deflate(1.0E-6)
+        return world.noCollision(box)
     }
 
-    override fun onPlaced(
-        world: World,
-        pos: BlockPos?,
-        state: BlockState?,
-        placer: LivingEntity?,
-        itemStack: ItemStack
-    ) {
-        val blockEntity: BlockEntity? = world.getBlockEntity(pos)
-        if(itemStack.hasCustomName() && blockEntity is BlockEntityDisruptionsCore) {
-           blockEntity.customName = itemStack.name
-        }
+    override fun affectNeighborsAfterRemoval(state: BlockState, world: ServerLevel, pos: BlockPos, movedByPiston: Boolean) {
+        Containers.updateNeighboursAfterDestroy(state, world, pos)
     }
 
-    override fun onStateReplaced(
-        state: BlockState,
-        world: World,
-        pos: BlockPos?,
-        newState: BlockState,
-        moved: Boolean
-    ) {
-        if(state.isOf(newState.block)) return
-
+    override fun getBlockSupportShape(state: BlockState, world: BlockGetter, pos: BlockPos): VoxelShape {
         val blockEntity = world.getBlockEntity(pos)
-        if(blockEntity is BlockEntityDisruptionsCore) world.updateComparators(pos, state.block)
-
-        super.onStateReplaced(state, world, pos, newState, moved)
-    }
-
-    override fun getSidesShape(state: BlockState, world: BlockView, pos: BlockPos?): VoxelShape? {
-        val blockEntity = world.getBlockEntity(pos)
-        return if(blockEntity is BlockEntityDisruptionsCore && !blockEntity.also {
-            }.suffocates()) {
+        return if(blockEntity is BlockEntityDisruptionsCore && !blockEntity.suffocates()) {
             shape
-        } else VoxelShapes.fullCube()
+        } else Shapes.block()
     }
 
-    override fun getOutlineShape(
-        state: BlockState?,
-        world: BlockView,
-        pos: BlockPos?,
-        context: ShapeContext?
+    override fun getShape(
+        state: BlockState,
+        world: BlockGetter,
+        pos: BlockPos,
+        context: CollisionContext
     ): VoxelShape {
         val blockEntity = world.getBlockEntity(pos)
         return if(blockEntity is BlockEntityDisruptionsCore) {
-            VoxelShapes.cuboid(blockEntity.getBoundingBox())
-        } else VoxelShapes.fullCube()
+            Shapes.create(blockEntity.getBoundingBox())
+        } else Shapes.block()
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>) {
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
         builder.add(FADING)
     }
 
-    override fun hasComparatorOutput(state: BlockState?): Boolean {
+    override fun hasAnalogOutputSignal(state: BlockState): Boolean {
         return true
     }
 
-    override fun getComparatorOutput(state: BlockState?, world: World, pos: BlockPos?): Int {
-        return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos) as Inventory?)
+    override fun getAnalogOutputSignal(state: BlockState, world: Level, pos: BlockPos, direction: Direction): Int {
+        return AbstractContainerMenu.getRedstoneSignalFromContainer(world.getBlockEntity(pos) as? Container)
     }
 
 }
-

@@ -20,13 +20,10 @@
 package dev.nathanpb.dml.item
 
 import dev.nathanpb.dml.enums.EntityCategory
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.util.Rarity
+import net.minecraft.core.component.DataComponents
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.Rarity
 
-class ItemPristineMatter(val entityCategory: EntityCategory): Item(FabricItemSettings().fireproof()) {
-    override fun hasGlint(stack: ItemStack?) = true
-
-    override fun getRarity(stack: ItemStack?) = Rarity.UNCOMMON
-}
+class ItemPristineMatter(properties: Properties, val entityCategory: EntityCategory) : Item(
+    properties.fireResistant().rarity(Rarity.UNCOMMON).component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
+)

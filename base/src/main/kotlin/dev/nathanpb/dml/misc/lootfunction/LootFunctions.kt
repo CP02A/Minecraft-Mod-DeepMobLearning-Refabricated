@@ -1,24 +1,18 @@
 package dev.nathanpb.dml.misc.lootfunction
 
+import com.mojang.serialization.MapCodec
 import dev.nathanpb.dml.identifier
-import net.minecraft.loot.function.LootFunction
-import net.minecraft.loot.function.LootFunctionType
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.util.JsonSerializer
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction
 
-
-val RANDOM_ENERGY: LootFunctionType = registerLootFunction("random_energy", RandomEnergyLootFunction.RandomEnergyLootFunctionSerializer())
-val RANDOM_DATA_MODEL: LootFunctionType = registerLootFunction("random_data_model", RandomDataModelLootFunction.RandomDataModelLootFunctionSerializer())
-val RANDOM_PRISTINE_MATTER: LootFunctionType = registerLootFunction("random_pristine_matter", RandomPristineMatterLootFunction.RandomPristineMatterLootFunctionSerializer())
-
-
-private fun registerLootFunction(id: String, serializer: JsonSerializer<out LootFunction>): LootFunctionType {
-    return Registry.register(Registries.LOOT_FUNCTION_TYPE, identifier(id), LootFunctionType(serializer))
+// Since 1.20.5 a loot function type is its codec
+private fun <T : LootItemFunction> registerLootFunction(id: String, codec: MapCodec<T>): MapCodec<T> {
+    return Registry.register(BuiltInRegistries.LOOT_FUNCTION_TYPE, identifier(id), codec)
 }
 
 fun registerLootFunctions() {
-    RANDOM_ENERGY
-    RANDOM_DATA_MODEL
-    RANDOM_PRISTINE_MATTER
+    registerLootFunction("random_energy", RandomEnergyLootFunction.CODEC)
+    registerLootFunction("random_data_model", RandomDataModelLootFunction.CODEC)
+    registerLootFunction("random_pristine_matter", RandomPristineMatterLootFunction.CODEC)
 }

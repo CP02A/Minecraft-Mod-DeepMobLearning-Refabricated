@@ -31,31 +31,35 @@ import dev.nathanpb.dml.recipe.TrialKeystoneRecipe
 import dev.nathanpb.dml.trial.*
 import dev.nathanpb.dml.trial.affix.core.TrialAffix
 import dev.nathanpb.dml.utils.*
-import net.minecraft.block.BlockState
-import net.minecraft.block.InventoryProvider
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.world.ClientWorld
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventories
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.client.Minecraft
+import net.minecraft.client.multiplayer.ClientLevel
+import net.minecraft.world.level.entity.EntityTypeTest
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import dev.nathanpb.dml.recipe.RECIPE_TRIAL_KEYSTONE
+import dev.nathanpb.dml.recipe.recipeById
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.NonNullList
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.LevelAccessor
 import kotlin.math.min
 import kotlin.random.Random
 
 
 class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
-    BlockEntity(BLOCKENTITY_TRIAL_KEYSTONE, pos, state),
-    InventoryProvider
+    ClientSyncedBlockEntity(BLOCKENTITY_TRIAL_KEYSTONE, pos, state),
+    WorldlyContainerHolder
 {
 
     companion object {
@@ -63,12 +67,12 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
             get() = (baseConfig.trial.arenaRadius.squared() - 9).toDouble() .. (baseConfig.trial.arenaRadius.squared() + 9).toDouble()
 
         val ticker = BlockEntityTicker<BlockEntityTrialKeystone> { world, pos, _, blockEntity ->
-            if (world?.isClient == true) {
+            if (world.isClientSide) {
                 when (blockEntity.clientTrialState) {
                     TrialState.NOT_STARTED -> {
                         if (!baseConfig.trial.allowStartInWrongTerrain) {
-                            MinecraftClient.getInstance().player?.let { clientPlayer ->
-                                if (clientPlayer.squaredDistanceTo(pos.toVec3d()) <= baseConfig.trial.arenaRadius.squared()) {
+                            Minecraft.getInstance().player?.let { clientPlayer ->
+                                if (clientPlayer.distanceToSqr(pos.toVec3d()) <= baseConfig.trial.arenaRadius.squared()) {
                                     blockEntity.spawnParticlesInWrongTerrain()
                                 }
                             }
@@ -77,7 +81,7 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
 
                     TrialState.RUNNING -> {
                         if (!baseConfig.trial.allowPlayersLeavingArena) {
-                            blockEntity.pullMobsInBorders(listOf(MinecraftClient.getInstance().player as LivingEntity))
+                            blockEntity.pullMobsInBorders(listOf(Minecraft.getInstance().player as LivingEntity))
                         }
                     }
                     else -> {}
@@ -89,10 +93,10 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
             // update Nov 11, 2020: what the fuck
             // update Feb 26, 2021: what the fuck
             // update Jun 09, 2021: what the fuck
-            if (world?.isClient == false && blockEntity.currentTrial == null) {
+            if (blockEntity.currentTrial == null) {
                 blockEntity.trialToLoad?.let { trialToLoad ->
                     try {
-                        val recipe = world.recipeManager?.get(trialToLoad.recipeId)?.orElse(null) as? TrialKeystoneRecipe
+                        val recipe = recipeById(world, RECIPE_TRIAL_KEYSTONE, trialToLoad.recipeId)
                         if (recipe != null) {
                             blockEntity.currentTrial = Trial(blockEntity, recipe, trialToLoad)
                         }
@@ -117,7 +121,7 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
                             // If the entity list is empty but the list of Players UUIDs participating is not empty
                             // so it means that everyone is logged off, the trial should just keep "idling"
 
-                            // If at least one PlayerEntity is found, so it checks the distance of the list of found PlayerEntities
+                            // If at least one Player is found, so it checks the distance of the list of found PlayerEntities
                             // and finalizes the trial if this one player is not near
 
                             // If the list of Player UUIDs participating the Trial is empty
@@ -145,14 +149,14 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
 
     init {
         ModEvents.TrialEndEvent.register { trial, reason ->
-            if (currentTrial == trial && !trial.world.isClient) {
+            if (currentTrial == trial && !trial.world.isClientSide) {
                 currentTrial = null
                 clientTrialState = TrialState.NOT_STARTED
 
                 if (reason == TrialEndReason.SUCCESS) {
-                    internalInventory.dropAll(trial.world, pos)
+                    internalInventory.dropAll(trial.world, blockPos)
                 } else {
-                    internalInventory.clear()
+                    internalInventory.clearContent()
                 }
 
                 sync()
@@ -161,7 +165,7 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
 
         ModEvents.TrialStateChanged.register {
             // Keystones do not have finished state, instead this is handled in onTrialEnd
-            if (world?.isClient == false && it.state != TrialState.FINISHED) {
+            if (level?.isClientSide == false && it.state != TrialState.FINISHED) {
                 clientTrialState = it.state
                 sync()
             }
@@ -169,29 +173,29 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
     }
 
     fun createTrial(recipe: TrialKeystoneRecipe, affixes: List<TrialAffix>): Trial {
-        val players = world?.getEntitiesAroundCircle(
-            EntityType.PLAYER,
-            pos, baseConfig.trial.arenaRadius.toDouble()
+        val players = level?.getEntitiesAroundCircle(
+            EntityTypeTest.forClass(Player::class.java),
+            blockPos, baseConfig.trial.arenaRadius.toDouble()
         ).orEmpty()
 
         if (players.isNotEmpty()) {
-            return Trial(this, recipe, players.map(PlayerEntity::getUuid), affixes)
+            return Trial(this, recipe, players.map(Player::getUUID), affixes)
         } else throw TrialKeystoneNoPlayersAround(this)
     }
 
     fun startTrial(trial: Trial, key: ItemStack?) {
-        world?.let { world ->
+        level?.let { world ->
             if (currentTrial?.state in listOf(TrialState.WARMUP, TrialState.RUNNING)) {
                 throw TrialKeystoneIllegalStartException(trial)
             }
-            internalInventory.dropAll(world, pos)
+            internalInventory.dropAll(world, blockPos)
             checkTerrain().let { wrongTerrain ->
                 if (wrongTerrain.isEmpty()) {
                     currentTrial = trial
                     trial.start()
 
                     if (key != null) {
-                        internalInventory.addStack(key)
+                        internalInventory.addItem(key)
                     }
                 } else throw TrialKeystoneWrongTerrainException(this, wrongTerrain)
             }
@@ -206,9 +210,10 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
             if (wrongTerrain.isNotEmpty()) {
                 (0 .. min(wrongTerrain.size / 4, 1)).let { _ ->
                     wrongTerrain.random().let {
-                        world?.addParticle(
+                        level?.addParticle(
                             RenderUtils.GLITCH_PARTICLE,
                             true,
+                            false,
                             it.x + Random.nextDouble() - .1,
                             it.y + 1.0,
                             it.z + Random.nextDouble() - .1,
@@ -224,24 +229,24 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
      * Pulls the mobs spawned by the waves back to the center
      */
     private fun pullMobsInBorders(mobs: List<LivingEntity>) {
-        val posVector = pos.toVec3d()
+        val posVector = blockPos.toVec3d()
         mobs.filter(LivingEntity::isAlive)
             .filterNot {
                 baseConfig.trial.allowPlayersLeavingArena
                         && currentTrial != null
                         && (it as? SystemGlitchEntity)?.trial == currentTrial
             }.filter {
-                val squaredDistance = it.squaredDistanceTo(posVector.x, posVector.y, posVector.z)
+                val squaredDistance = it.distanceToSqr(posVector.x, posVector.y, posVector.z)
                 squaredDistance in BORDERS_RANGE
             }.forEach {
-                val vector = it.pos.subtract(pos.toVec3d()).multiply(-0.1)
-                it.addVelocity(vector.x, vector.y, vector.z)
+                val vector = it.position().subtract(blockPos.toVec3d()).scale(-0.1)
+                it.push(vector.x, vector.y, vector.z)
             }
     }
 
-    private fun arePlayersAround(players: List<PlayerEntity>) = pos.toVec3d().let { posVec ->
+    private fun arePlayersAround(players: List<Player>) = blockPos.toVec3d().let { posVec ->
         players.any {
-            it.squaredDistanceTo(posVec.x, posVec.y, posVec.z) <= baseConfig.trial.arenaRadius.squared()
+            it.distanceToSqr(posVec.x, posVec.y, posVec.z) <= baseConfig.trial.arenaRadius.squared()
         }
     }
 
@@ -252,6 +257,8 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
      */
     fun checkTerrain(): List<BlockPos> {
         return if (!baseConfig.trial.allowStartInWrongTerrain) {
+            val pos = blockPos
+            val world = level
             mutableListOf<BlockPos>().also { list ->
                 val radInt = baseConfig.trial.arenaRadius
                 (pos.x - radInt .. pos.x + radInt).forEach { x ->
@@ -259,9 +266,9 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
 
                         // Searching for non-solid blocks bellow the circle
                         val floorPos = BlockPos(x, pos.y - 1, z)
-                        if (floorPos.getSquaredDistance(pos) <= baseConfig.trial.arenaRadius.squared()) {
+                        if (floorPos.distSqr(pos) <= baseConfig.trial.arenaRadius.squared()) {
                             world?.getBlockState(floorPos)?.let { floorBlock ->
-                                if (!floorBlock.isSideSolidFullSquare(world, floorPos, Direction.UP)) {
+                                if (!floorBlock.isFaceSturdy(world!!, floorPos, Direction.UP)) {
                                     list += floorPos
                                 }
                             }
@@ -272,7 +279,7 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
                             val innerBlockPos = BlockPos(x, y, z)
                             if (
                                 innerBlockPos != pos
-                                && innerBlockPos.getSquaredDistance(pos) < baseConfig.trial.arenaRadius.squared()
+                                && innerBlockPos.distSqr(pos) < baseConfig.trial.arenaRadius.squared()
                                 && world?.getBlockState(innerBlockPos)?.isAir != true
                             ) {
                                 list += innerBlockPos
@@ -284,76 +291,37 @@ class BlockEntityTrialKeystone(pos: BlockPos, state: BlockState) :
         } else emptyList()
     }
 
-    override fun getInventory(state: BlockState, world: WorldAccess, pos: BlockPos): SidedInventory {
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos): WorldlyContainer {
         return (world.getBlockEntity(pos) as BlockEntityTrialKeystone).internalInventory
     }
 
-    override fun writeNbt(tag: NbtCompound?) {
-        return super.writeNbt(tag).also {
-            if (tag != null) {
-                Inventories.writeNbt(tag, internalInventory.items())
-                currentTrial?.also { trial ->
-                    if (trial.state in arrayOf(TrialState.WARMUP, TrialState.RUNNING)) {
-                        TrialDataSerializer().write(tag, "trial", TrialData(trial))
-                    }
-                }
+    override fun toTag(output: ValueOutput) {
+        ContainerHelper.saveAllItems(output, internalInventory.items())
+        currentTrial?.also { trial ->
+            if (trial.state in arrayOf(TrialState.WARMUP, TrialState.RUNNING)) {
+                output.store("trial", CompoundTag.CODEC, TrialData(trial).tag)
             }
         }
     }
 
-    override fun readNbt(tag: NbtCompound?) {
-        if(tag?.contains("#c") == true) {
-            fromClientTag(tag)
-            if(tag.getBoolean("#c")) {
-                remesh()
-            }
-        } else {
-            super.readNbt(tag)
-            if (tag != null && currentTrial == null) {
-                val stacks = DefaultedList.ofSize(internalInventory.size(), ItemStack.EMPTY)
-                Inventories.readNbt(tag, stacks)
-                internalInventory.setStacks(stacks)
-                if (tag.contains("trial")) {
-                    trialToLoad = TrialDataSerializer().read(tag, "trial")
-                }
+    override fun fromTag(input: ValueInput) {
+        if (currentTrial == null) {
+            val stacks = NonNullList.withSize(internalInventory.containerSize, ItemStack.EMPTY)
+            ContainerHelper.loadAllItems(input, stacks)
+            internalInventory.setStacks(stacks)
+            input.read("trial", CompoundTag.CODEC).ifPresent {
+                trialToLoad = TrialData(it)
             }
         }
     }
 
-    private fun toClientTag(tag: NbtCompound) = tag.also {
-        it.putString("${MOD_ID}:state", (currentTrial?.state ?: TrialState.NOT_STARTED).name)
+    override fun toClientTag(output: ValueOutput) {
+        output.putString("${MOD_ID}:state", (currentTrial?.state ?: TrialState.NOT_STARTED).name)
     }
 
-    private fun fromClientTag(tag: NbtCompound) {
-        clientTrialState = tag.getString("${MOD_ID}:state").let { name ->
+    override fun fromClientTag(input: ValueInput) {
+        clientTrialState = input.getStringOr("${MOD_ID}:state", "").let { name ->
             if (name.isNotEmpty()) TrialState.valueOf(name) else TrialState.NOT_STARTED
         }
     }
-
-    override fun toInitialChunkDataNbt(): NbtCompound {
-        val nbt = super.toInitialChunkDataNbt()
-        toClientTag(nbt)
-        nbt.putBoolean("#c", shouldClientRemesh) // mark client tag
-        shouldClientRemesh = false
-        return nbt
-    }
-
-    private fun sync(shouldRemesh : Boolean) { // Thanks, Technici4n :happy_tater:
-        Preconditions.checkNotNull(world)
-        check(world is ServerWorld) { "Cannot call sync() on the logical client!" }
-        shouldClientRemesh = shouldRemesh or shouldClientRemesh
-        (world as ServerWorld).chunkManager.markForUpdate(getPos())
-    }
-
-    private fun sync() {
-        sync(true)
-    }
-
-    private fun remesh() {
-        Preconditions.checkNotNull(world)
-        check(world is ClientWorld) { "Cannot call remesh() on the server!" }
-        world!!.updateListeners(pos, null, null, 0)
-    }
-
-    private var shouldClientRemesh = true
 }

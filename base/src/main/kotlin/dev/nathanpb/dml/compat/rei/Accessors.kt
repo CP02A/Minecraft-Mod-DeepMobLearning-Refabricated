@@ -20,11 +20,11 @@
 package dev.nathanpb.dml.compat.rei
 
 import dev.nathanpb.dml.accessor.ILivingEntityReiStateAccessor
-import net.minecraft.entity.LivingEntity
+import net.minecraft.world.entity.LivingEntity
 
 
 var LivingEntity.isInReiScreen: Boolean
-    get() = (this as ILivingEntityReiStateAccessor).isDmlRefIsInReiScreen
+    get() = (this as ILivingEntityReiStateAccessor).`dml$isInReiScreen`()
     set(flag) {
-        (this as ILivingEntityReiStateAccessor).setDmlRefInReiScreen(flag)
+        (this as ILivingEntityReiStateAccessor).`dml$setInReiScreen`(flag)
     }

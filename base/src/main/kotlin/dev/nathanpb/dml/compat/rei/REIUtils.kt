@@ -21,15 +21,15 @@
 package dev.nathanpb.dml.compat.rei
 
 import me.shedaniel.rei.api.common.entry.EntryStack
-import net.minecraft.item.ItemConvertible
-import net.minecraft.item.ItemStack
+import net.minecraft.world.level.ItemLike
+import net.minecraft.world.item.ItemStack
 
 
 fun  EntryStack<*>.itemStack(): ItemStack {
     return value.let { value ->
         when (value) {
             is ItemStack -> value
-            is ItemConvertible -> ItemStack(value)
+            is ItemLike -> ItemStack(value)
             else -> ItemStack.EMPTY
         }
     }

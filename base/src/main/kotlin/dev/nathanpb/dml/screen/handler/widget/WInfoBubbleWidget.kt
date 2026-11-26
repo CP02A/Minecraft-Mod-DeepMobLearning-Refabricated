@@ -1,15 +1,15 @@
 package dev.nathanpb.dml.screen.handler.widget
 
 import dev.nathanpb.dml.identifier
-import dev.nathanpb.dml.mixin.DrawContextAccessor
+import net.minecraft.client.Minecraft
 import io.github.cottonmc.cotton.gui.widget.WSprite
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 class WInfoBubbleWidget(
     texture: Identifier,
-    val text: List<Text>,
+    val text: List<Component>,
     var hidden: Boolean = false
 ): WSprite(texture) {
 
@@ -18,13 +18,13 @@ class WInfoBubbleWidget(
         val WARNING_BUBBLE = identifier("textures/gui/warning_bubble.png")
     }
 
-    override fun paint(context: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         if(hidden) return
         super.paint(context, x, y, mouseX, mouseY)
 
         if(!isHovered) return
-        context.drawTooltip(
-            (context as DrawContextAccessor).client.textRenderer,
+        context.setComponentTooltipForNextFrame(
+            Minecraft.getInstance().font,
             text,
             x + mouseX, y + mouseY
         )

@@ -27,28 +27,28 @@ import dev.nathanpb.dml.utils.toBlockPos
 import dev.nathanpb.dml.utils.toVec3i
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
-import net.minecraft.entity.Entity
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.mob.EndermanEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.registry.Registries
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.math.Vec3d
-import net.minecraft.world.World
-import net.minecraft.world.explosion.ExplosionBehavior
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.monster.Enderman
+import net.minecraft.world.entity.player.Player
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.ExplosionDamageCalculator
 
 class TrialGriefPrevention : AttackBlockCallback, UseBlockCallback {
 
     companion object {
         fun isInArea(trialPos: BlockPos, pos: BlockPos): Boolean {
-            return trialPos.getSquaredDistance(pos.toVec3i()) <= baseConfig.trial.arenaRadius.squared()
+            return trialPos.distSqr(pos.toVec3i()) <= baseConfig.trial.arenaRadius.squared()
         }
 
-        fun isBlockProtected(world: World, pos: BlockPos): Boolean {
+        fun isBlockProtected(world: Level, pos: BlockPos): Boolean {
             return world.runningTrials.any {
                 isBlockProtected(pos, it)
             }
@@ -59,61 +59,61 @@ class TrialGriefPrevention : AttackBlockCallback, UseBlockCallback {
         }
     }
 
-    override fun interact(player: PlayerEntity, world: World, hand: Hand, pos: BlockPos, direction: Direction): ActionResult {
+    override fun interact(player: Player, world: Level, hand: InteractionHand, pos: BlockPos, direction: Direction): InteractionResult {
         return if (
-            !world.isClient
+            !world.isClientSide
             && baseConfig.trial.interactGriefPrevention
             && isBlockProtected(world, pos)
-            && !world.getBlockState(pos).isIn(TRIAL_GRIEF_WHITELIST)
-            && "grave" !in Registries.BLOCK.getId(world.getBlockState(pos).block).path
+            && !world.getBlockState(pos).`is`(TRIAL_GRIEF_WHITELIST)
+            && "grave" !in BuiltInRegistries.BLOCK.getKey(world.getBlockState(pos).block).path
         ) {
-            ActionResult.FAIL
-        } else ActionResult.PASS
+            InteractionResult.FAIL
+        } else InteractionResult.PASS
     }
 
-    override fun interact(player: PlayerEntity, world: World, hand: Hand, hitResult: BlockHitResult): ActionResult {
+    override fun interact(player: Player, world: Level, hand: InteractionHand, hitResult: BlockHitResult): InteractionResult {
         if (baseConfig.trial.buildGriefPrevention) {
-            val posOfPlacedBlock = hitResult.blockPos.offset(hitResult.side)
-            if (!world.isClient && isBlockProtected(world, posOfPlacedBlock)) {
-                return ActionResult.FAIL
+            val posOfPlacedBlock = hitResult.blockPos.relative(hitResult.direction)
+            if (!world.isClientSide && isBlockProtected(world, posOfPlacedBlock)) {
+                return InteractionResult.FAIL
             }
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
     fun explode(
-        world: World,
+        world: Level,
         entity: Entity?,
         damageSource: DamageSource?,
-        behavior: ExplosionBehavior?,
+        behavior: ExplosionDamageCalculator?,
         pos: BlockPos,
         power: Float,
         createFire: Boolean,
-        destructionType: World.ExplosionSourceType
-    ): ActionResult {
+        destructionType: Level.ExplosionInteraction
+    ): InteractionResult {
         if (
-            !world.isClient
+            !world.isClientSide
             && baseConfig.trial.explosionGriefPrevention
-            && destructionType != World.ExplosionSourceType.NONE
+            && destructionType != Level.ExplosionInteraction.NONE
             && isBlockProtected(world, pos)
         ) {
-            world.createExplosion(entity, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), power, createFire, World.ExplosionSourceType.NONE)
-            return ActionResult.FAIL
+            world.explode(entity, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), power, createFire, Level.ExplosionInteraction.NONE)
+            return InteractionResult.FAIL
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
-    fun onEndermanTeleport(entity: EndermanEntity, pos: Vec3d): ActionResult {
+    fun onEndermanTeleport(entity: Enderman, pos: Vec3): InteractionResult {
         if (!baseConfig.trial.allowMobsLeavingArena) {
-            val isInProtectedArea = isBlockProtected(entity.world, entity.pos.toBlockPos())
-            val toProtectedArea = isBlockProtected(entity.world, pos.toBlockPos())
+            val isInProtectedArea = isBlockProtected(entity.level(), entity.blockPosition())
+            val toProtectedArea = isBlockProtected(entity.level(), pos.toBlockPos())
 
             // The first real use of xor in my entire life
             // 22/07/2020, 5:19 AM - Passo Fundo, Brazil
             if (isInProtectedArea xor toProtectedArea) {
-                return ActionResult.FAIL
+                return InteractionResult.FAIL
             }
         }
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 }

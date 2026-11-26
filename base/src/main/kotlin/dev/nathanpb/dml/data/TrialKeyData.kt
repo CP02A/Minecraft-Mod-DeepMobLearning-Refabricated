@@ -24,21 +24,25 @@ import dev.nathanpb.dml.data.serializers.TrialAffixListSerializer
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.utils.takeOrNull
-import dev.nathanpb.ktdatatag.data.MutableCompoundData
-import dev.nathanpb.ktdatatag.serializer.EnumSerializer
-import dev.nathanpb.ktdatatag.serializer.Serializers
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
+import dev.nathanpb.dml.data.tag.MutableCompoundData
+import dev.nathanpb.dml.data.tag.EnumSerializer
+import dev.nathanpb.dml.data.tag.Serializers
+import dev.nathanpb.dml.data.tag.customDataTag
+import dev.nathanpb.dml.data.tag.setCustomDataTag
+import dev.nathanpb.dml.data.tag.stackSubData
+import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.CompoundTag
 
-class TrialKeyData (tag: NbtCompound) : MutableCompoundData(tag) {
+class TrialKeyData private constructor(data: Pair<CompoundTag, (CompoundTag) -> Unit>) : MutableCompoundData(data.first, data.second) {
 
-    constructor(stack: ItemStack) : this(stack.getOrCreateSubNbt(TAG_KEY))
+    constructor(tag: CompoundTag) : this(tag to {})
+    constructor(stack: ItemStack) : this(stackSubData(stack, TAG_KEY))
 
     companion object {
         const val TAG_KEY = "${MOD_ID}.trialkey"
 
         fun fromDataModelData(data: DataModelData) = data.category?.let {
-            TrialKeyData(NbtCompound()).apply {
+            TrialKeyData(CompoundTag()).apply {
                 category = it
                 dataAmount = data.dataAmount
              }
@@ -54,11 +58,11 @@ class TrialKeyData (tag: NbtCompound) : MutableCompoundData(tag) {
 }
 
 var ItemStack.trialKeyData : TrialKeyData?
-    get() = takeOrNull(orCreateNbt.contains(TrialKeyData.TAG_KEY)) {
+    get() = takeOrNull(customDataTag.contains(TrialKeyData.TAG_KEY)) {
         TrialKeyData(this)
     }
     set(value) = if (value != null) {
-        this.setSubNbt(TrialKeyData.TAG_KEY, value.tag)
+        setCustomDataTag(customDataTag.also { it.put(TrialKeyData.TAG_KEY, value.tag) })
     } else {
-        this.removeSubNbt(TrialKeyData.TAG_KEY)
+        setCustomDataTag(customDataTag.also { it.remove(TrialKeyData.TAG_KEY) })
     }

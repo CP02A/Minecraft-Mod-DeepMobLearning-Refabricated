@@ -24,9 +24,10 @@ import dev.nathanpb.dml.entity.SystemGlitchEntity
 import dev.nathanpb.dml.trial.TrialGriefPrevention
 import dev.nathanpb.dml.utils.getPlayersByUUID
 import dev.nathanpb.dml.utils.squared
-import net.minecraft.entity.ai.TargetPredicate
-import net.minecraft.entity.ai.goal.ActiveTargetGoal
-import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.world.entity.ai.targeting.TargetingConditions
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.player.Player
 import kotlin.random.Random
 
 /**
@@ -39,30 +40,30 @@ import kotlin.random.Random
  * The entity has 5% chance of teleporting per tick if the timeout its cleared
  * It also sets the entity's target to the target the goal picked
  */
-class GlitchTeleportTowardsPlayerGoal(private val glitch: SystemGlitchEntity) : ActiveTargetGoal<PlayerEntity?>(
+class GlitchTeleportTowardsPlayerGoal(private val glitch: SystemGlitchEntity) : NearestAttackableTargetGoal<Player>(
     glitch,
-    PlayerEntity::class.java as Class<PlayerEntity?>,
+    Player::class.java,
     false
 ) {
 
     private var ticksToTeleportCountdown = 0
 
-    override fun canStart(): Boolean {
+    override fun canUse(): Boolean {
         if (baseConfig.trial.systemGlitch.teleportChance <= 0) {
             return false
         }
 
         glitch.trial.let { trial ->
-            targetEntity = trial?.world?.getPlayersByUUID(trial.players)?.filter {
-                baseConfig.trial.allowPlayersLeavingArena || TrialGriefPrevention.isInArea(trial.pos, it.blockPos)
-            }?.randomOrNull() ?: glitch.world.getClosestPlayer(TargetPredicate.DEFAULT, glitch)
+            target = trial?.world?.getPlayersByUUID(trial.players)?.filter {
+                baseConfig.trial.allowPlayersLeavingArena || TrialGriefPrevention.isInArea(trial.pos, it.blockPosition())
+            }?.randomOrNull() ?: (glitch.level() as? ServerLevel)?.getNearestPlayer(TargetingConditions.forCombat(), glitch)
         }
 
-        return targetEntity != null
+        return target != null
     }
 
     override fun stop() {
-        targetEntity = null
+        target = null
         ticksToTeleportCountdown = 0
         super.stop()
     }
@@ -71,11 +72,11 @@ class GlitchTeleportTowardsPlayerGoal(private val glitch: SystemGlitchEntity) : 
         if (ticksToTeleportCountdown > 0) {
             ticksToTeleportCountdown--
         }
-        if (targetEntity != null && ticksToTeleportCountdown <= 0 && Random.nextFloat() <= baseConfig.trial.systemGlitch.teleportChance) {
-            if (targetEntity!!.squaredDistanceTo(glitch) >= baseConfig.trial.systemGlitch.teleportMinDistance.squared()) {
-                if (glitch.tryTeleportRandomly(targetEntity!!.blockPos, baseConfig.trial.systemGlitch.teleportAroundPlayerRadius)) {
+        if (target != null && ticksToTeleportCountdown <= 0 && Random.nextFloat() <= baseConfig.trial.systemGlitch.teleportChance) {
+            if (target!!.distanceToSqr(glitch) >= baseConfig.trial.systemGlitch.teleportMinDistance.squared()) {
+                if (glitch.tryTeleportRandomly(target!!.blockPosition(), baseConfig.trial.systemGlitch.teleportAroundPlayerRadius)) {
                     ticksToTeleportCountdown = baseConfig.trial.systemGlitch.teleportDelay
-                    glitch.target = targetEntity
+                    glitch.target = target
                     return
                 }
             }

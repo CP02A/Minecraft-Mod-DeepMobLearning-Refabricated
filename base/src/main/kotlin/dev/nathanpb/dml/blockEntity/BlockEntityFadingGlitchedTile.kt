@@ -19,29 +19,29 @@
 
 package dev.nathanpb.dml.blockEntity
 
-import net.minecraft.block.BlockState
-import net.minecraft.block.Blocks
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.nbt.NbtHelper
-import net.minecraft.registry.Registries
-import net.minecraft.util.math.BlockPos
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
 
+/** Remembers the block this tile replaced, to turn back into it. */
 class BlockEntityFadingGlitchedTile(
     pos: BlockPos, state: BlockState
 ) : BlockEntity(BLOCKENTITY_FADING_GLITCHED_TILE, pos, state) {
 
 
-    var blockState: BlockState = Blocks.AIR.defaultState
+    var replacedState: BlockState = Blocks.AIR.defaultBlockState()
 
-    override fun readNbt(nbt: NbtCompound) {
-        super.readNbt(nbt)
-        blockState = NbtHelper.toBlockState(Registries.BLOCK.readOnlyWrapper, nbt.getCompound("BlockState"))
+    override fun loadAdditional(input: ValueInput) {
+        super.loadAdditional(input)
+        replacedState = input.read("BlockState", BlockState.CODEC).orElse(Blocks.AIR.defaultBlockState())
     }
 
-    override fun writeNbt(nbt: NbtCompound) {
-        super.writeNbt(nbt)
-        nbt.put("BlockState", NbtHelper.fromBlockState(blockState))
+    override fun saveAdditional(output: ValueOutput) {
+        super.saveAdditional(output)
+        output.store("BlockState", BlockState.CODEC, replacedState)
     }
 
 }

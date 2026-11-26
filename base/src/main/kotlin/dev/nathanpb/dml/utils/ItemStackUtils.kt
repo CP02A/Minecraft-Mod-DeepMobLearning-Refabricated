@@ -22,24 +22,24 @@ package dev.nathanpb.dml.utils
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.data.dataModel
 import dev.nathanpb.dml.item.ItemDataModel
-import net.minecraft.item.ItemStack
+import net.minecraft.world.item.ItemStack
 import kotlin.math.min
 
 fun combineStacksIfPossible(source: ItemStack, target: ItemStack, maxInventoryCountPerStack: Int): Boolean {
     fun canCombine(source: ItemStack, target: ItemStack) : Boolean {
         return (
             source.item === target.item
-            && target.count < target.maxCount
-            && ItemStack.areEqual(source, target)
+            && target.count < target.maxStackSize
+            && ItemStack.matches(source, target)
         )
     }
 
     fun transfer(source: ItemStack, target: ItemStack) {
-        val i: Int = min(maxInventoryCountPerStack, target.maxCount)
+        val i: Int = min(maxInventoryCountPerStack, target.maxStackSize)
         val j: Int = min(source.count, i - target.count)
         if (j > 0) {
-            target.increment(j)
-            source.decrement(j)
+            target.grow(j)
+            source.shrink(j)
         }
     }
 

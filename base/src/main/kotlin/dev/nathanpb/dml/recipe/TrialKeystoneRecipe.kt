@@ -19,47 +19,86 @@
 
 package dev.nathanpb.dml.recipe
 
-import com.google.gson.JsonObject
+import com.mojang.serialization.Codec
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
 import dev.nathanpb.dml.data.TrialKeyData
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
+import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.item.ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE
-import dev.nathanpb.dml.utils.MODULAR_ARMOR_ID
-import dev.nathanpb.dml.utils.isModLoaded
-import dev.nathanpb.dml.utils.takeOrNull
-import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.recipe.Recipe
-import net.minecraft.recipe.RecipeSerializer
-import net.minecraft.recipe.ShapedRecipe
-import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.util.Identifier
-import net.minecraft.world.World
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.resources.Identifier
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.ItemStackTemplate
+import net.minecraft.world.item.crafting.PlacementInfo
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeBookCategories
+import net.minecraft.world.item.crafting.RecipeBookCategory
+import net.minecraft.world.item.crafting.RecipeInput
+import net.minecraft.world.item.crafting.RecipeSerializer
+import net.minecraft.world.level.Level
+import java.util.Optional
 import kotlin.random.Random
 
 class TrialKeystoneRecipe (
-    private val id: Identifier,
     val category: EntityCategory,
     val tier: DataModelTier,
-    val spawnRate: Map<Regex, Float>,
-    private val rewards: List<ItemStack>,
-    waveEntityCount: Int?,
-    waveRespawnTimeout: Int?
-    ) : Recipe<SimpleInventory> {
+    /** The spawn weights by entity id pattern, as in the recipe file. */
+    private val spawnWeights: Map<String, Int>,
+    private val rewards: List<ItemStackTemplate>,
+    private val waveEntityCountOverride: Optional<Int>,
+    private val waveRespawnTimeoutOverride: Optional<Int>
+) : Recipe<RecipeInput>, IdentifiedRecipe {
 
-    val waveEntityCount = waveEntityCount ?: tier.defaultWaveEntityCount
-    val waveRespawnTimeout = waveRespawnTimeout ?: tier.defaultWaveRespawnTimeout
+    override var id: Identifier = identifier("unknown")
+
+    /** The spawn chance of each entity id pattern (the weights normalized to a sum of 1). */
+    val spawnRate: Map<Regex, Float> = spawnWeights.values.sum().toFloat().let { sum ->
+        spawnWeights.entries.associate { (k, v) -> k.toRegex() to v / sum }
+    }
+
+    val waveEntityCount = waveEntityCountOverride.orElse(tier.defaultWaveEntityCount)
+    val waveRespawnTimeout = waveRespawnTimeoutOverride.orElse(tier.defaultWaveRespawnTimeout)
 
     companion object {
-        fun findOrNull(world: World, data: TrialKeyData) = world.recipeManager.values()
-            .filterIsInstance(TrialKeystoneRecipe::class.java)
+        fun findOrNull(world: Level, data: TrialKeyData) = recipesOf(world, RECIPE_TRIAL_KEYSTONE)
             .firstOrNull { it.category == data.category && it.tier == data.tier() }
+
+        private val TIER_CODEC: Codec<DataModelTier> = Codec.INT.xmap(
+            { DataModelTier.fromIndex(it) ?: DataModelTier.FAULTY },
+            DataModelTier::ordinal
+        )
+
+        val CODEC: MapCodec<TrialKeystoneRecipe> = RecordCodecBuilder.mapCodec { i ->
+            i.group(
+                ENTITY_CATEGORY_CODEC.fieldOf("category").forGetter(TrialKeystoneRecipe::category),
+                TIER_CODEC.fieldOf("tier").forGetter(TrialKeystoneRecipe::tier),
+                Codec.unboundedMap(Codec.STRING, Codec.INT).fieldOf("spawnRates").forGetter { it.spawnWeights },
+                ItemStackTemplate.CODEC.listOf().fieldOf("rewards").forGetter { it.rewards },
+                Codec.INT.optionalFieldOf("waveEntityCount").forGetter { it.waveEntityCountOverride },
+                Codec.INT.optionalFieldOf("waveRespawnTimeout").forGetter { it.waveRespawnTimeoutOverride }
+            ).apply(i, ::TrialKeystoneRecipe)
+        }
+
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, TrialKeystoneRecipe> = StreamCodec.composite(
+            ENTITY_CATEGORY_STREAM_CODEC, TrialKeystoneRecipe::category,
+            ByteBufCodecs.VAR_INT.map({ DataModelTier.fromIndex(it) ?: DataModelTier.FAULTY }, DataModelTier::ordinal), TrialKeystoneRecipe::tier,
+            ByteBufCodecs.map(::HashMap, ByteBufCodecs.STRING_UTF8, ByteBufCodecs.VAR_INT), { HashMap(it.spawnWeights) },
+            ItemStackTemplate.STREAM_CODEC.apply(ByteBufCodecs.list()), { it.rewards },
+            ByteBufCodecs.optional(ByteBufCodecs.VAR_INT), { it.waveEntityCountOverride },
+            ByteBufCodecs.optional(ByteBufCodecs.VAR_INT), { it.waveRespawnTimeoutOverride },
+            ::TrialKeystoneRecipe
+        )
+
+        @Suppress("DEPRECATION")
+        val SERIALIZER = RecipeSerializer(CODEC, STREAM_CODEC)
     }
 
     fun copyRewards(onREI: Boolean = false): MutableList<ItemStack> {
-        val rewardsCopy = rewards.map(ItemStack::copy).toMutableList()
+        val rewardsCopy = rewards.map(ItemStackTemplate::create).toMutableList()
 
         // Glitch Upgrade
         if(tier.glitchUpgradeOdds > 0 && (Random.nextDouble() < tier.glitchUpgradeOdds || onREI)) {
@@ -79,87 +118,19 @@ class TrialKeystoneRecipe (
     }
 
     @Deprecated("", ReplaceWith("copyRewards", "dev.nathanpb.dml.recipe"))
-    override fun craft(inv: SimpleInventory, registry: DynamicRegistryManager): ItemStack = ItemStack.EMPTY
-
-    @Deprecated("", ReplaceWith("copyRewards", "dev.nathanpb.dml.recipe"))
-    override fun getOutput(registry: DynamicRegistryManager): ItemStack = ItemStack.EMPTY
-
-    override fun getId() = id
+    override fun assemble(input: RecipeInput): ItemStack = ItemStack.EMPTY
 
     override fun getType() = RECIPE_TRIAL_KEYSTONE
 
-    override fun fits(width: Int, height: Int) = true
+    override fun getSerializer() = SERIALIZER
 
-    override fun getSerializer() = TRIAL_KEYSTONE_RECIPE_SERIALIZER
-
-    override fun matches(inv: SimpleInventory?, world: World?): Boolean {
+    override fun matches(input: RecipeInput, world: Level): Boolean {
         return false
     }
 
-    class Serializer : RecipeSerializer<TrialKeystoneRecipe> {
-        override fun write(buf: PacketByteBuf, recipe: TrialKeystoneRecipe) {
-            buf.writeString(recipe.category.name)
-            buf.writeInt(recipe.tier.ordinal)
-            buf.writeInt(recipe.waveEntityCount)
-            buf.writeInt(recipe.waveRespawnTimeout)
-            buf.writeInt(recipe.rewards.size)
-            recipe.rewards.forEach { buf.writeItemStack(it) }
-            buf.writeInt(recipe.spawnRate.size)
-            recipe.spawnRate.forEach { (k, v) ->
-                buf.writeString(k.toString())
-                buf.writeFloat(v)
-            }
-        }
-
-        override fun read(id: Identifier, json: JsonObject): TrialKeystoneRecipe {
-            val tier = DataModelTier.fromIndex(json.getAsJsonPrimitive("tier").asInt) ?: DataModelTier.FAULTY
-            val category = EntityCategory.valueOf(json.getAsJsonPrimitive("category").asString)
-            val rewards = json.getAsJsonArray("rewards").map {
-                ShapedRecipe.outputFromJson(it.asJsonObject)
-            }
-
-            val waveEntityCount = takeOrNull(json.has("waveEntityCount")) {
-                json.getAsJsonPrimitive("waveEntityCount").asInt
-            }
-
-            val waveRespawnTimeout = takeOrNull(json.has("waveRespawnTimeout")) {
-                json.getAsJsonPrimitive("waveRespawnTimeout").asInt
-            }
-
-            val rates = json.getAsJsonObject("spawnRates").let { obj ->
-                val sum = obj.entrySet().sumOf { it.value.asInt }.toFloat()
-                obj.entrySet()
-                    .asSequence()
-                    .map { (k, v) -> k.toRegex() to v.asInt.toFloat() }
-                    .map { (k, v) -> k to (v * 1f) / sum }
-                    .toMap()
-            }
-
-            return TrialKeystoneRecipe(
-                id,
-                category,
-                tier,
-                rates,
-                rewards,
-                waveEntityCount,
-                waveRespawnTimeout
-            )
-        }
-
-        override fun read(id: Identifier, buf: PacketByteBuf): TrialKeystoneRecipe {
-            val category = EntityCategory.valueOf(buf.readString())
-            val tier = DataModelTier.fromIndex(buf.readInt()) ?: DataModelTier.FAULTY
-            val waveCount = buf.readInt()
-            val waveRespawnTimeout = buf.readInt()
-            val stacks = (1 .. buf.readInt()).map {
-                buf.readItemStack()
-            }
-
-            val spawnRates = (1..buf.readInt()).associate {
-                buf.readString().toRegex() to buf.readFloat()
-            }
-
-            return TrialKeystoneRecipe(id, category, tier, spawnRates, stacks, waveCount, waveRespawnTimeout)
-        }
-    }
+    override fun showNotification() = false
+    override fun group() = ""
+    override fun isSpecial() = true
+    override fun placementInfo(): PlacementInfo = PlacementInfo.NOT_PLACEABLE
+    override fun recipeBookCategory(): RecipeBookCategory = RecipeBookCategories.CRAFTING_MISC
 }

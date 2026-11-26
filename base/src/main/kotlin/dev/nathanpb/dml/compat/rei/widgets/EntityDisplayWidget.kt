@@ -20,13 +20,13 @@
 package dev.nathanpb.dml.compat.rei.widgets
 
 import dev.nathanpb.dml.compat.rei.isInReiScreen
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.gui.Drawable
-import net.minecraft.client.gui.Element
-import net.minecraft.client.gui.screen.ingame.InventoryScreen
-import net.minecraft.entity.LivingEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.util.Hand
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.components.Renderable
+import net.minecraft.client.gui.components.events.GuiEventListener
+import net.minecraft.client.gui.screens.inventory.InventoryScreen
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.InteractionHand
 
 class EntityDisplayWidget(
     private val entities: List<LivingEntity>,
@@ -37,25 +37,26 @@ class EntityDisplayWidget(
     private val size: Int,
     private val stackInMainHand: ItemStack? = null,
     private val preRender: ((LivingEntity)->Unit) = {}
-) : Drawable, Element {
+) : Renderable, GuiEventListener {
 
     private var tickCount = 0
 
-    override fun render(ctx: DrawContext, mX: Int, mY: Int, delta: Float) {
+    override fun extractRenderState(ctx: GuiGraphicsExtractor, mX: Int, mY: Int, delta: Float) {
         tickCount++
         val entity = entities[(tickCount / 60) % entities.size]
         entity.isInReiScreen = true
         val initialStackMainHand = stackInMainHand?.let {
-            entity.getStackInHand(Hand.MAIN_HAND).also {
-                entity.setStackInHand(Hand.MAIN_HAND, stackInMainHand)
+            entity.getItemInHand(InteractionHand.MAIN_HAND).also {
+                entity.setItemInHand(InteractionHand.MAIN_HAND, stackInMainHand)
             }
         }
 
         preRender.invoke(entity)
-        InventoryScreen.drawEntity(ctx, x, y, size, mouseX, mouseY, entity)
+        // (x, y) is the bottom center of the entity, (mouseX, mouseY) where it looks at
+        InventoryScreen.extractEntityInInventoryFollowsMouse(ctx, x - size, y - size * 2, x + size, y, size, 0F, x + mouseX, y + mouseY, entity)
 
         if (stackInMainHand != null) {
-            entity.setStackInHand(Hand.MAIN_HAND, initialStackMainHand)
+            entity.setItemInHand(InteractionHand.MAIN_HAND, initialStackMainHand ?: ItemStack.EMPTY)
         }
         entity.isInReiScreen = false
     }

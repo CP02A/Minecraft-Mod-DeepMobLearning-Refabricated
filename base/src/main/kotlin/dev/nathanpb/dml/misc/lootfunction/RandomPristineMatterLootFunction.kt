@@ -1,38 +1,34 @@
 package dev.nathanpb.dml.misc.lootfunction
 
-import com.google.gson.JsonDeserializationContext
-import com.google.gson.JsonObject
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.misc.PRISTINE_MATTER
-import net.minecraft.item.ItemStack
-import net.minecraft.loot.condition.LootCondition
-import net.minecraft.loot.context.LootContext
-import net.minecraft.loot.function.ConditionalLootFunction
-import net.minecraft.loot.function.LootFunctionType
-import net.minecraft.registry.Registries
+import net.minecraft.core.Holder
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.storage.loot.LootContext
+import net.minecraft.world.level.storage.loot.functions.LootItemConditionalFunction
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition
+import java.util.Optional
 
-class RandomPristineMatterLootFunction(conditions: Array<out LootCondition>): ConditionalLootFunction(conditions) {
+/** Replaces the stack with a random amount of a random pristine matter. */
+class RandomPristineMatterLootFunction(condition: Optional<Holder<LootItemCondition>>): LootItemConditionalFunction(condition) {
 
+    companion object {
+        val CODEC: MapCodec<RandomPristineMatterLootFunction> = RecordCodecBuilder.mapCodec { i ->
+            i.group(LootItemCondition.CODEC.optionalFieldOf("condition").forGetter { it.condition })
+                .apply(i, ::RandomPristineMatterLootFunction)
+        }
+    }
 
-    override fun process(stack: ItemStack, ctx: LootContext): ItemStack {
-        val pristineMatterStack = ItemStack(
-            Registries.ITEM.iterateEntries(PRISTINE_MATTER).iterator()
-                .asSequence()
-                .toList()
-                .random()
-        )
+    override fun run(stack: ItemStack, ctx: LootContext): ItemStack {
+        val pristineMatterStack = ItemStack(BuiltInRegistries.ITEM.getTagOrEmpty(PRISTINE_MATTER).toList().random())
         val maxStackSize = baseConfig.misc.disruption.maxPristineMatterStackSize
         pristineMatterStack.count = ctx.random.nextInt(maxStackSize + 1).coerceIn(0, 64)
 
         return pristineMatterStack
     }
 
-    override fun getType(): LootFunctionType = RANDOM_PRISTINE_MATTER
-
-    class RandomPristineMatterLootFunctionSerializer: Serializer<RandomPristineMatterLootFunction>() {
-
-        override fun fromJson(json: JsonObject, context: JsonDeserializationContext, conditions: Array<out LootCondition>): RandomPristineMatterLootFunction {
-            return RandomPristineMatterLootFunction(conditions)
-        }
-    }
+    override fun codec() = CODEC
 }

@@ -20,7 +20,7 @@
 package dev.nathanpb.dml.trial
 
 import dev.nathanpb.dml.blockEntity.BlockEntityTrialKeystone
-import net.minecraft.util.math.BlockPos
+import net.minecraft.core.BlockPos
 
 open class TrialKeystoneException(val keystone: BlockEntityTrialKeystone): Exception()
 open class TrialException(val trial: Trial): Exception()

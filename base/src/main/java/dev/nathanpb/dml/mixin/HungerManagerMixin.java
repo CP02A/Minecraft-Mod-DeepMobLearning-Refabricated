@@ -1,70 +1,31 @@
-package dev.nathanpb.dml.mixin;/*
- * Copyright (C) 2020 Nathan P. Bombana, IterationFunk
- *
- * This file is part of Deep Mob Learning: Refabricated.
- *
- * Deep Mob Learning: Refabricated is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Deep Mob Learning: Refabricated is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Deep Mob Learning: Refabricated.  If not, see <https://www.gnu.org/licenses/>.
- */
+package dev.nathanpb.dml.mixin;
 
-/*
- *
- *  Copyright (C) 2021 Nathan P. Bombana, IterationFunk
- *
- *  This file is part of Deep Mob Learning: Refabricated.
- *
- *  Deep Mob Learning: Refabricated is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Deep Mob Learning: Refabricated is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public License
- *  along with Deep Mob Learning: Refabricated.  If not, see <https://www.gnu.org/licenses/>.
- */
-
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import dev.nathanpb.dml.event.VanillaEvents;
-import net.minecraft.entity.player.HungerManager;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.food.FoodData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.Slice;
 
-@Mixin(HungerManager.class)
+@Mixin(FoodData.class)
 public class HungerManagerMixin {
 
     @Shadow
     private int foodLevel;
 
-    @Redirect(
-        method = "update",
-        at = @At(value = "INVOKE", target = "Ljava/lang/Math;max(II)I", ordinal = 0),
-        slice = @Slice(
-            from = @At(value = "FIELD", target = "Lnet/minecraft/world/Difficulty;PEACEFUL:Lnet/minecraft/world/Difficulty;"),
-            to = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;getGameRules()Lnet/minecraft/world/GameRules;")
-        )
+    // foodLevel = Math.max(foodLevel - 1, 0): the hunger lost from exhaustion, which the event can change
+    @WrapOperation(
+        method = "tick",
+        at = @At(value = "INVOKE", target = "Ljava/lang/Math;max(II)I", ordinal = 0)
     )
-    private int redirect$max(int a, int b, PlayerEntity player) {
+    private int dml$modifyHungerLoss(int a, int b, Operation<Integer> original, @Local(argsOnly = true) ServerPlayer player) {
         int eventResult = VanillaEvents.INSTANCE.getPlayerTakeHungerEvent()
             .invoker()
             .invoke(player, foodLevel - a);
 
-        return Math.max(foodLevel - eventResult, b);
+        return original.call(foodLevel - eventResult, b);
     }
 }

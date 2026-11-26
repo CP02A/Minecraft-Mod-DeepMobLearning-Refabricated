@@ -21,7 +21,7 @@ package dev.nathanpb.dml.compat.rei.category
 
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.block.BLOCK_TRIAL_KEYSTONE
-import dev.nathanpb.dml.compat.rei.ReiPlugin
+import dev.nathanpb.dml.compat.rei.ReiCategories
 import dev.nathanpb.dml.compat.rei.display.TrialRecipeDisplay
 import dev.nathanpb.dml.compat.rei.widgets.EntityDisplayWidget
 import dev.nathanpb.dml.entity.SYSTEM_GLITCH_ENTITY_TYPE
@@ -35,22 +35,22 @@ import me.shedaniel.rei.api.client.registry.display.DisplayCategory
 import me.shedaniel.rei.api.common.category.CategoryIdentifier
 import me.shedaniel.rei.api.common.entry.EntryStack
 import me.shedaniel.rei.api.common.util.EntryStacks
-import net.minecraft.client.MinecraftClient
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.client.Minecraft
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 class TrialDisplayCategory: DisplayCategory<TrialRecipeDisplay> {
 
-    override fun getIdentifier(): Identifier = ReiPlugin.TRIAL_CATEGORY.identifier
+    override fun getIdentifier(): Identifier = ReiCategories.TRIAL_CATEGORY.identifier
 
     override fun getIcon(): EntryStack<ItemStack> = EntryStacks.of(ITEM_TRIAL_KEY)
 
-    override fun getCategoryIdentifier(): CategoryIdentifier<TrialRecipeDisplay> = ReiPlugin.TRIAL_CATEGORY
+    override fun getCategoryIdentifier(): CategoryIdentifier<TrialRecipeDisplay> = ReiCategories.TRIAL_CATEGORY
 
-    override fun getTitle(): MutableText = Text.translatable("rei.$MOD_ID.category.trial")
+    override fun getTitle(): MutableComponent = Component.translatable("rei.$MOD_ID.category.trial")
 
 
     override fun setupDisplay(recipeDisplay: TrialRecipeDisplay, bounds: Rectangle): MutableList<Widget> {
@@ -83,7 +83,7 @@ class TrialDisplayCategory: DisplayCategory<TrialRecipeDisplay> {
             keySlot,
             keystoneSlot
         ).also { widgets ->
-            MinecraftClient.getInstance().player?.let { player ->
+            Minecraft.getInstance().player?.let { player ->
                 widgets += Widgets.wrapVanillaWidget(EntityDisplayWidget(
                     listOf(player),
                     centerX - 30,
@@ -93,7 +93,7 @@ class TrialDisplayCategory: DisplayCategory<TrialRecipeDisplay> {
                 ))
 
                 widgets += Widgets.wrapVanillaWidget(EntityDisplayWidget(
-                    listOf(SystemGlitchEntity(SYSTEM_GLITCH_ENTITY_TYPE, player.world)),
+                    listOf(SystemGlitchEntity(SYSTEM_GLITCH_ENTITY_TYPE, player.level()).also { it.id = -999 }),
                     centerX + 45,
                     centerY + 8,
                     120F, 20F, 16

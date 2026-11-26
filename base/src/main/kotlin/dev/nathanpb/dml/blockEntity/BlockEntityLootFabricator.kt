@@ -28,31 +28,34 @@ import dev.nathanpb.dml.recipe.RECIPE_LOOT_FABRICATOR
 import dev.nathanpb.dml.utils.*
 import io.github.cottonmc.cotton.gui.PropertyDelegateHolder
 import net.fabricmc.fabric.api.entity.FakePlayer
-import net.minecraft.block.BlockState
-import net.minecraft.block.InventoryProvider
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.inventory.Inventories
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.recipe.RecipeInputProvider
-import net.minecraft.recipe.RecipeMatcher
-import net.minecraft.registry.Registries
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.Containers
+import net.minecraft.world.item.crafting.SingleRecipeInput
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.inventory.StackedContentsCompatible
+import net.minecraft.world.entity.player.StackedItemContents
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.NonNullList
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.LevelAccessor
 import team.reborn.energy.api.base.SimpleEnergyStorage
 import kotlin.properties.Delegates
 
 class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
     BlockEntity(BLOCKENTITY_LOOT_FABRICATOR, pos, state),
-    InventoryProvider,
+    WorldlyContainerHolder,
     PropertyDelegateHolder,
-    RecipeInputProvider
+    StackedContentsCompatible
 {
 
     /**
@@ -61,11 +64,11 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
      * 2 - [SimpleEnergyStorage.amount]
      * 3 - [energyCapacity] (const)
      */
-    private val _propertyDelegate = ArrayPropertyDelegate(4)
+    private val _propertyDelegate = SimpleContainerData(4)
     private var isDumpingBufferedInventory = false
-    val bufferedInternalInventory = SimpleInventory(64)
+    val bufferedInternalInventory = SimpleContainer(64)
     val inventory = LootFabricatorInventory().apply {
-        addListener {
+        onChanged = {
             dumpInternalInventory()
         }
     }
@@ -79,7 +82,7 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
     val energyStorage: SimpleEnergyStorage = object : SimpleEnergyStorage(energyCapacity, energyInput, 0) {
 
         override fun onFinalCommit() {
-            markDirty()
+            setChanged()
             propertyDelegate[2] = amount.toInt()
         }
     }
@@ -104,39 +107,40 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
 
             if(blockEntity.bufferedInternalInventory.isEmpty) {
                 val pristineMatterStack = blockEntity.inventory.stackInInputSlot
-                    ?: return@BlockEntityTicker blockEntity.resetProgress()
+                if(pristineMatterStack.isEmpty) return@BlockEntityTicker blockEntity.resetProgress()
 
-                val recipe = world.recipeManager.getFirstMatch(RECIPE_LOOT_FABRICATOR, blockEntity.inventory, world).orElse(null)
+                val recipe = (world as ServerLevel).recipeAccess()
+                    .getRecipeFor(RECIPE_LOOT_FABRICATOR, SingleRecipeInput(pristineMatterStack), world).orElse(null)?.value()
                     ?: return@BlockEntityTicker blockEntity.resetProgress()
 
                 val energyCost = calculateEnergyCost(pristineMatterStack)
 
                 if(blockEntity.energyStorage.amount >= energyCost) {
                     if(blockEntity.progress >= blockEntity.maxProgress) {
-                        val generatedLoot = blockEntity.generateLoot((world as ServerWorld), recipe.category).also {
+                        val generatedLoot = blockEntity.generateLoot((world as ServerLevel), recipe.category).also {
                             // O(n²) goes brrrr
                             it.forEach { stackSource ->
                                 it.forEach { stackTarget ->
                                     combineStacksIfPossible(
                                         stackSource,
                                         stackTarget,
-                                        blockEntity.bufferedInternalInventory.maxCountPerStack
+                                        blockEntity.bufferedInternalInventory.maxStackSize
                                     )
                                 }
                             }
                         }.filterNot(ItemStack::isEmpty)
                         blockEntity.bufferedInternalInventory.setStacks(
-                            DefaultedList.copyOf(ItemStack.EMPTY, *generatedLoot.toTypedArray())
+                            NonNullList.of(ItemStack.EMPTY, *generatedLoot.toTypedArray())
                         )
-                        pristineMatterStack.decrement(1)
+                        pristineMatterStack.shrink(1)
                         blockEntity.dumpInternalInventory()
 
                         blockEntity.energyStorage.amount -= energyCost
                         blockEntity.propertyDelegate[2] = blockEntity.energyStorage.amount.toInt()
-                        blockEntity.markDirty()
+                        blockEntity.setChanged()
                     } else {
                         blockEntity.progress++
-                        blockEntity.markDirty()
+                        blockEntity.setChanged()
                         return@BlockEntityTicker
                     }
                 } else {
@@ -146,14 +150,14 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
         }
     }
     
-    private fun generateLoot(world: ServerWorld, category: EntityCategory): List<ItemStack> {
-        val entityList = Registries.ENTITY_TYPE.iterateEntries(category.tagKey).filter{true}
+    private fun generateLoot(world: ServerLevel, category: EntityCategory): List<ItemStack> {
+        val entityList = BuiltInRegistries.ENTITY_TYPE.getTagOrEmpty(category.tagKey).toList()
         return (0 until category.exchangeRatio).map {
             entityList.random().value()
-                .simulateLootDroppedStacks(world, FakePlayer.get(world), world.damageSources.generic())
+                .simulateLootDroppedStacks(world, FakePlayer.get(world), world.damageSources().generic())
         }.flatten().let { stacks ->
-            SimpleInventory(stacks.size).also { tempInventory ->
-                stacks.forEach { tempInventory.addStack(it) }
+            SimpleContainer(stacks.size).also { tempInventory ->
+                stacks.forEach { tempInventory.addItem(it) }
             }
         }.items()
     }
@@ -169,13 +173,13 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
                 .items()
                 .filterNot(ItemStack::isEmpty)
                 .forEach { buffStack ->
-                    val invStack = inventory.getStack(invIndex)
+                    val invStack = inventory.getItem(invIndex)
                     if (invStack.isEmpty) {
-                        inventory.setStack(invIndex, buffStack.copy())
+                        inventory.setItem(invIndex, buffStack.copy())
                         buffStack.count = 0
                     } else {
-                        if (combineStacksIfPossible(buffStack, invStack, inventory.maxCountPerStack)) {
-                            inventory.markDirty()
+                        if (combineStacksIfPossible(buffStack, invStack, inventory.maxStackSize)) {
+                            inventory.setChanged()
                         }
                     }
                 }
@@ -186,54 +190,48 @@ class BlockEntityLootFabricator(pos: BlockPos, state: BlockState) :
     private fun resetProgress() {
         if(progress == 0) return
         progress = 0
-        markDirty()
+        setChanged()
     }
 
-    override fun getInventory(state: BlockState, world: WorldAccess, pos: BlockPos): SidedInventory {
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos): WorldlyContainer {
         return (world.getBlockEntity(pos) as BlockEntityLootFabricator).inventory
     }
 
-    override fun writeNbt(tag: NbtCompound?) {
-        return super.writeNbt(tag).also {
-            if (tag != null) {
-                tag.putLong("${MOD_ID}:energy", energyStorage.amount)
-                tag.putInt("${MOD_ID}:progress", progress)
+    override fun saveAdditional(output: ValueOutput) {
+        super.saveAdditional(output)
+        output.putLong("${MOD_ID}:energy", energyStorage.amount)
+        output.putInt("${MOD_ID}:progress", progress)
+        ContainerHelper.saveAllItems(output.child("${MOD_ID}:inventory"), inventory.items())
+        ContainerHelper.saveAllItems(output.child("${MOD_ID}:bufferedInventory"), bufferedInternalInventory.items())
+    }
 
-                NbtCompound().let { invTag ->
-                    Inventories.writeNbt(invTag, inventory.items())
-                    tag.put("${MOD_ID}:inventory", invTag)
-                }
+    override fun loadAdditional(input: ValueInput) {
+        super.loadAdditional(input)
+        energyStorage.amount = input.getLongOr("${MOD_ID}:energy", 0L).also {
+            propertyDelegate[2] = it.toInt()
+        }
+        progress = input.getIntOr("${MOD_ID}:progress", 0)
 
-                NbtCompound().let { invTag ->
-                    Inventories.writeNbt(invTag, bufferedInternalInventory.items())
-                    tag.put("${MOD_ID}:bufferedInventory", invTag)
-                }
-            }
+        val stacks = NonNullList.withSize(inventory.containerSize, ItemStack.EMPTY)
+        ContainerHelper.loadAllItems(input.childOrEmpty("${MOD_ID}:inventory"), stacks)
+        inventory.setStacks(stacks)
+
+        val stacksBufferedInventory = NonNullList.withSize(bufferedInternalInventory.containerSize, ItemStack.EMPTY)
+        ContainerHelper.loadAllItems(input.childOrEmpty("${MOD_ID}:bufferedInventory"), stacksBufferedInventory)
+        bufferedInternalInventory.setStacks(stacksBufferedInventory)
+    }
+
+    // Before 1.21.5 the block dropped the inventories when it was replaced
+    override fun preRemoveSideEffects(pos: BlockPos, state: BlockState) {
+        level?.let {
+            Containers.dropContents(it, pos, inventory)
+            Containers.dropContents(it, pos, bufferedInternalInventory)
         }
     }
 
-    override fun readNbt(tag: NbtCompound?) {
-        super.readNbt(tag).also {
-            if (tag != null) {
-                energyStorage.amount = tag.getLong("${MOD_ID}:energy").also {
-                    propertyDelegate[2] = it.toInt()
-                }
-                progress = tag.getInt("${MOD_ID}:progress")
+    override fun getPropertyDelegate(): SimpleContainerData = _propertyDelegate
 
-                val stacks = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY)
-                Inventories.readNbt(tag.getCompound("${MOD_ID}:inventory"), stacks)
-                inventory.setStacks(stacks)
-
-                val stacksBufferedInventory = DefaultedList.ofSize(bufferedInternalInventory.size(), ItemStack.EMPTY)
-                Inventories.readNbt(tag.getCompound("${MOD_ID}:bufferedInventory"), stacksBufferedInventory)
-                bufferedInternalInventory.setStacks(stacksBufferedInventory)
-            }
-        }
-    }
-
-    override fun getPropertyDelegate() = _propertyDelegate
-
-    override fun provideRecipeInputs(finder: RecipeMatcher) {
-        finder.addInput(inventory.stackInInputSlot)
+    override fun fillStackedContents(finder: StackedItemContents) {
+        finder.accountStack(inventory.stackInInputSlot)
     }
 }

@@ -24,11 +24,16 @@ import dev.nathanpb.dml.NotDataModelException
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.item.ItemDataModel
-import dev.nathanpb.ktdatatag.data.MutableCompoundData
-import dev.nathanpb.ktdatatag.serializer.Serializers
-import net.minecraft.item.ItemStack
+import dev.nathanpb.dml.data.tag.MutableCompoundData
+import dev.nathanpb.dml.data.tag.Serializers
+import dev.nathanpb.dml.data.tag.stackData
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.item.ItemStack
 
-class DataModelData(val stack: ItemStack, val category: EntityCategory?) : MutableCompoundData(stack.orCreateNbt) {
+class DataModelData private constructor(val stack: ItemStack, val category: EntityCategory?, data: Pair<CompoundTag, (CompoundTag) -> Unit>) :
+    MutableCompoundData(data.first, data.second) {
+
+    constructor(stack: ItemStack, category: EntityCategory?) : this(stack, category, stackData(stack))
 
     companion object {
         const val DATA_AMOUNT_TAG_KEY = "${MOD_ID}.datamodel.dataAmount"

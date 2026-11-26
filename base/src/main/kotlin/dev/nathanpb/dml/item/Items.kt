@@ -21,108 +21,79 @@ package dev.nathanpb.dml.item
 
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.enums.EntityCategory
-import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.item.battery.ItemEnergyOctahedron
 import dev.nathanpb.dml.itemgroup.ITEMS
-import dev.nathanpb.dml.mixin.SmithingTemplateItemAccessor
-import dev.nathanpb.dml.utils.ItemTuple
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.item.SmithingTemplateItem
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.util.Rarity
+import dev.nathanpb.dml.utils.registerItem
+import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Rarity
+import net.minecraft.world.item.SmithingTemplateItem
+
+// Items are created and registered together (their properties need the id), in creative tab order, when this file's
+// class is loaded by registerItems(). Items with shown = false are left out of the tab or added elsewhere.
+private val SHOWN = ArrayList<Item>()
+
+private fun <T : Item> item(id: String, shown: Boolean = true, factory: (Item.Properties) -> T): T =
+    registerItem(id, factory).also { if(shown) SHOWN += it }
 
 //val ITEM_GUIDE_TABLET = ItemGuideTablet()
-val ITEM_DML = Item(Item.Settings())
+val ITEM_DML = item(MOD_ID, false, ::Item)
 
-val ITEM_SOOT_REDSTONE = Item(FabricItemSettings())
-val ITEM_SOOT_PLATE = Item(FabricItemSettings())
-val ITEM_POLYMER_CLAY = Item(FabricItemSettings())
-val ITEM_SOOT_MACHINE_CASE = Item(FabricItemSettings())
+val ITEM_SOOT_REDSTONE = item("soot_redstone", factory = ::Item)
+val ITEM_SOOT_PLATE = item("soot_plate", factory = ::Item)
+val ITEM_SOOT_MACHINE_CASE = item("machine_casing", factory = ::Item)
+val ITEM_POLYMER_CLAY = item("polymer_clay", factory = ::Item)
 
-val ITEM_DEEP_LEARNER = ItemDeepLearner()
+val ITEM_DEEP_LEARNER = item("deep_learner", factory = ::ItemDeepLearner)
 
-val ITEM_DATA_MODEL = ItemDataModel()
-val ITEM_DATA_MODEL_NETHER = ItemDataModel(EntityCategory.NETHER)
-val ITEM_DATA_MODEL_SLIMY = ItemDataModel(EntityCategory.SLIMY)
-val ITEM_DATA_MODEL_OVERWORLD = ItemDataModel(EntityCategory.OVERWORLD)
-val ITEM_DATA_MODEL_ZOMBIE = ItemDataModel(EntityCategory.ZOMBIE)
-val ITEM_DATA_MODEL_SKELETON = ItemDataModel(EntityCategory.SKELETON)
-val ITEM_DATA_MODEL_END = ItemDataModel(EntityCategory.END)
-val ITEM_DATA_MODEL_GHOST = ItemDataModel(EntityCategory.GHOST)
-val ITEM_DATA_MODEL_ILLAGER = ItemDataModel(EntityCategory.ILLAGER)
-val ITEM_DATA_MODEL_OCEAN = ItemDataModel(EntityCategory.OCEAN)
+val ITEM_DATA_MODEL = item("data_model") { ItemDataModel(it) }
+val ITEM_DATA_MODEL_OVERWORLD = item("data_model_overworld") { ItemDataModel(it, EntityCategory.OVERWORLD) }
+val ITEM_DATA_MODEL_ZOMBIE = item("data_model_zombie") { ItemDataModel(it, EntityCategory.ZOMBIE) }
+val ITEM_DATA_MODEL_SKELETON = item("data_model_skeleton") { ItemDataModel(it, EntityCategory.SKELETON) }
+val ITEM_DATA_MODEL_SLIMY = item("data_model_slimy") { ItemDataModel(it, EntityCategory.SLIMY) }
+val ITEM_DATA_MODEL_ILLAGER = item("data_model_illager") { ItemDataModel(it, EntityCategory.ILLAGER) }
+val ITEM_DATA_MODEL_OCEAN = item("data_model_ocean") { ItemDataModel(it, EntityCategory.OCEAN) }
+val ITEM_DATA_MODEL_GHOST = item("data_model_ghost") { ItemDataModel(it, EntityCategory.GHOST) }
+val ITEM_DATA_MODEL_NETHER = item("data_model_nether") { ItemDataModel(it, EntityCategory.NETHER) }
+val ITEM_DATA_MODEL_END = item("data_model_end") { ItemDataModel(it, EntityCategory.END) }
 
-val ITEM_TRIAL_KEY = ItemTrialKey()
+val ITEM_TRIAL_KEY = item("trial_key", factory = ::ItemTrialKey)
 
-val ITEM_PRISTINE_MATTER_NETHER = ItemPristineMatter(EntityCategory.NETHER)
-val ITEM_PRISTINE_MATTER_SLIMY = ItemPristineMatter(EntityCategory.SLIMY)
-val ITEM_PRISTINE_MATTER_OVERWORLD = ItemPristineMatter(EntityCategory.OVERWORLD)
-val ITEM_PRISTINE_MATTER_ZOMBIE = ItemPristineMatter(EntityCategory.ZOMBIE)
-val ITEM_PRISTINE_MATTER_SKELETON = ItemPristineMatter(EntityCategory.SKELETON)
-val ITEM_PRISTINE_MATTER_END = ItemPristineMatter(EntityCategory.END)
-val ITEM_PRISTINE_MATTER_GHOST = ItemPristineMatter(EntityCategory.GHOST)
-val ITEM_PRISTINE_MATTER_ILLAGER = ItemPristineMatter(EntityCategory.ILLAGER)
-val ITEM_PRISTINE_MATTER_OCEAN = ItemPristineMatter(EntityCategory.OCEAN)
+val ITEM_PRISTINE_MATTER_OVERWORLD = item("pristine_matter_overworld") { ItemPristineMatter(it, EntityCategory.OVERWORLD) }
+val ITEM_PRISTINE_MATTER_ZOMBIE = item("pristine_matter_zombie") { ItemPristineMatter(it, EntityCategory.ZOMBIE) }
+val ITEM_PRISTINE_MATTER_SKELETON = item("pristine_matter_skeleton") { ItemPristineMatter(it, EntityCategory.SKELETON) }
+val ITEM_PRISTINE_MATTER_SLIMY = item("pristine_matter_slimy") { ItemPristineMatter(it, EntityCategory.SLIMY) }
+val ITEM_PRISTINE_MATTER_ILLAGER = item("pristine_matter_illager") { ItemPristineMatter(it, EntityCategory.ILLAGER) }
+val ITEM_PRISTINE_MATTER_OCEAN = item("pristine_matter_ocean") { ItemPristineMatter(it, EntityCategory.OCEAN) }
+val ITEM_PRISTINE_MATTER_GHOST = item("pristine_matter_ghost") { ItemPristineMatter(it, EntityCategory.GHOST) }
+val ITEM_PRISTINE_MATTER_NETHER = item("pristine_matter_nether") { ItemPristineMatter(it, EntityCategory.NETHER) }
+val ITEM_PRISTINE_MATTER_END = item("pristine_matter_end") { ItemPristineMatter(it, EntityCategory.END) }
 
-val ITEM_EMERITUS_HAT = ItemEmeritusHat()
+val ITEM_EMERITUS_HAT = item("emeritus_hat", false, ::ItemEmeritusHat)
 
-val ITEM_PHYSICALLY_CONDENSED_MATRIX_FRAGMENT = Item(FabricItemSettings().fireproof().rarity(Rarity.RARE))
-val ITEM_GLITCH_INGOT = Item(FabricItemSettings().fireproof().rarity(Rarity.RARE))
-val ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE = SmithingTemplateItem(
-    Text.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.applies_to").formatted(Formatting.BLUE),
-    Text.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.ingredients").formatted(Formatting.BLUE),
-    Text.translatable("upgrade.${MOD_ID}.glitch_upgrade").formatted(Formatting.GRAY),
-    Text.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.base_slot_description"),
-    Text.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.additions_slot_description"),
-    SmithingTemplateItemAccessor.dml_getArmorTrimEmptyBaseSlotTextures(),
-    SmithingTemplateItemAccessor.dml_getNetheriteUpgradeEmptyAdditionsSlotTextures()
-)
-val ITEM_GLITCH_SWORD = ItemGlitchSword()
-val ITEM_ENERGY_OCTAHEDRON = ItemEnergyOctahedron()
+val ITEM_PHYSICALLY_CONDENSED_MATRIX_FRAGMENT = item("physically_condensed_matrix_fragment") {
+    Item(it.fireResistant().rarity(Rarity.RARE))
+}
+val ITEM_GLITCH_INGOT = item("glitch_ingot") { Item(it.fireResistant().rarity(Rarity.RARE)) }
+val ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE = item("glitch_upgrade_smithing_template", false) {
+    SmithingTemplateItem(
+        Component.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.applies_to").withStyle(ChatFormatting.BLUE),
+        Component.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.ingredients").withStyle(ChatFormatting.BLUE),
+        Component.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.base_slot_description"),
+        Component.translatable("item.${MOD_ID}.glitch_upgrade_smithing_template.additions_slot_description"),
+        // The vanilla empty slot icons of the armor trim (base) and netherite upgrade (addition) templates
+        listOf("helmet", "chestplate", "leggings", "boots").map { slot -> Identifier.withDefaultNamespace("container/slot/$slot") },
+        listOf(Identifier.withDefaultNamespace("container/slot/ingot")),
+        it
+    )
+}
+val ITEM_GLITCH_SWORD = item("glitch_sword", false, ::ItemGlitchSword)
+val ITEM_ENERGY_OCTAHEDRON = item("energy_octahedron", false, ::ItemEnergyOctahedron)
 
 fun registerItems() {
-    linkedMapOf(
-        //ITEM_GUIDE_TABLET to ItemTuple("guide_tablet"),
-        ITEM_DML to ItemTuple(MOD_ID, false),
-        ITEM_SOOT_REDSTONE to ItemTuple("soot_redstone"),
-        ITEM_SOOT_PLATE to ItemTuple("soot_plate"),
-        ITEM_SOOT_MACHINE_CASE to ItemTuple("machine_casing"),
-        ITEM_POLYMER_CLAY to ItemTuple("polymer_clay"),
-        ITEM_DEEP_LEARNER to ItemTuple("deep_learner"),
-        ITEM_DATA_MODEL to ItemTuple("data_model"),
-        ITEM_DATA_MODEL_OVERWORLD to ItemTuple("data_model_overworld"),
-        ITEM_DATA_MODEL_ZOMBIE to ItemTuple("data_model_zombie"),
-        ITEM_DATA_MODEL_SKELETON to ItemTuple("data_model_skeleton"),
-        ITEM_DATA_MODEL_SLIMY to ItemTuple("data_model_slimy"),
-        ITEM_DATA_MODEL_ILLAGER to ItemTuple("data_model_illager"),
-        ITEM_DATA_MODEL_OCEAN to ItemTuple("data_model_ocean"),
-        ITEM_DATA_MODEL_GHOST to ItemTuple("data_model_ghost"),
-        ITEM_DATA_MODEL_NETHER to ItemTuple("data_model_nether"),
-        ITEM_DATA_MODEL_END to ItemTuple("data_model_end"),
-        ITEM_TRIAL_KEY to ItemTuple("trial_key"),
-        ITEM_PRISTINE_MATTER_OVERWORLD to ItemTuple("pristine_matter_overworld"),
-        ITEM_PRISTINE_MATTER_ZOMBIE to ItemTuple("pristine_matter_zombie"),
-        ITEM_PRISTINE_MATTER_SKELETON to ItemTuple("pristine_matter_skeleton"),
-        ITEM_PRISTINE_MATTER_SLIMY to ItemTuple("pristine_matter_slimy"),
-        ITEM_PRISTINE_MATTER_ILLAGER to ItemTuple("pristine_matter_illager"),
-        ITEM_PRISTINE_MATTER_OCEAN to ItemTuple("pristine_matter_ocean"),
-        ITEM_PRISTINE_MATTER_GHOST to ItemTuple("pristine_matter_ghost"),
-        ITEM_PRISTINE_MATTER_NETHER to ItemTuple("pristine_matter_nether"),
-        ITEM_PRISTINE_MATTER_END to ItemTuple("pristine_matter_end"),
-        ITEM_EMERITUS_HAT to ItemTuple("emeritus_hat", false),
-        ITEM_PHYSICALLY_CONDENSED_MATRIX_FRAGMENT to ItemTuple("physically_condensed_matrix_fragment"),
-        ITEM_GLITCH_INGOT to ItemTuple("glitch_ingot"),
-        ITEM_GLITCH_UPGRADE_SMITHING_TEMPLATE to ItemTuple("glitch_upgrade_smithing_template", false),
-        ITEM_GLITCH_SWORD to ItemTuple("glitch_sword", false),
-        ITEM_ENERGY_OCTAHEDRON to ItemTuple("energy_octahedron", false)
-    ).forEach { (item, tuple) ->
-        Registry.register(Registries.ITEM, identifier(tuple.identifier), item)
-        if(tuple.shown) ITEMS.add(ItemStack(item))
-    }
-
+    // Loading the vals above registered the items
+    ITEMS.addAll(SHOWN)
 }

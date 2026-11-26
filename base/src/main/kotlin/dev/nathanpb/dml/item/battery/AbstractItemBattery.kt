@@ -1,60 +1,66 @@
 package dev.nathanpb.dml.item.battery
 
+import dev.nathanpb.dml.data.tag.customDataTag
+import dev.nathanpb.dml.data.tag.setCustomDataTag
 import dev.nathanpb.dml.utils.RenderUtils.Companion.ENERGY_STYLE
 import dev.nathanpb.dml.utils.distributeEnergyToInventory
 import dev.nathanpb.dml.utils.getBooleanInfoText
 import dev.nathanpb.dml.utils.getEnergyTooltipText
-import net.minecraft.entity.Entity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket
-import net.minecraft.registry.Registries
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.Style
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.TypedActionResult
-import net.minecraft.world.World
+import net.minecraft.ChatFormatting
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
+import net.minecraft.network.protocol.game.ClientboundSoundPacket
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.item.component.TooltipDisplay
+import net.minecraft.world.level.Level
 import team.reborn.energy.api.base.SimpleEnergyItem
 import java.awt.Color
+import java.util.function.Consumer
 
-
-abstract class AbstractItemBattery: Item(Settings().maxCount(1)), SimpleEnergyItem {
+abstract class AbstractItemBattery(properties: Properties): Item(properties.stacksTo(1)), SimpleEnergyItem {
 
     abstract fun isPristineEnergy(): Boolean /** true on modular-armor only! */
 
     abstract fun getColor(): Color
 
-    override fun use(world: World, user: PlayerEntity, hand: Hand): TypedActionResult<ItemStack> {
-        if(world.isClient()) return TypedActionResult.pass(user.getStackInHand(hand))
-        if(user.isSneaking) {
-            val stack = user.getStackInHand(hand)
+    override fun use(world: Level, user: Player, hand: InteractionHand): InteractionResult {
+        if(world.isClientSide()) return InteractionResult.PASS
+        if(user.isCrouching) {
+            val stack = user.getItemInHand(hand)
             val hasDistributeEnergy = hasDistributeEnergy(stack)
 
-            stack.getOrCreateNbt().putBoolean(distributeEnergyKey, !hasDistributeEnergy)
-            (user as ServerPlayerEntity).networkHandler.sendPacket(
-                PlaySoundS2CPacket(
-                    Registries.SOUND_EVENT.getEntry(
-                        if(hasDistributeEnergy) SoundEvents.BLOCK_IRON_TRAPDOOR_CLOSE else SoundEvents.BLOCK_IRON_TRAPDOOR_OPEN
+            stack.setCustomDataTag(stack.customDataTag.also { it.putBoolean(distributeEnergyKey, !hasDistributeEnergy) })
+            (user as ServerPlayer).connection.send(
+                ClientboundSoundPacket(
+                    BuiltInRegistries.SOUND_EVENT.wrapAsHolder(
+                        if(hasDistributeEnergy) SoundEvents.IRON_TRAPDOOR_CLOSE else SoundEvents.IRON_TRAPDOOR_OPEN
                     ),
-                    SoundCategory.PLAYERS,
-                    user.getX(), user.getY(), user.getZ(),
+                    SoundSource.PLAYERS,
+                    user.x, user.y, user.z,
                     1.0f, 1.0f,
-                    user.getBlockPos().asLong()
+                    user.blockPosition().asLong()
                 )
             )
-            user.sendMessage(getEnabledText(stack), true)
-            return TypedActionResult.success(stack)
+            user.sendOverlayMessage(getEnabledText(stack))
+            return InteractionResult.SUCCESS_SERVER
         }
         return super.use(world, user, hand)
     }
 
-    override fun inventoryTick(stack: ItemStack, world: World, entity: Entity, slot: Int, selected: Boolean) {
-        if(world.isClient() || entity !is PlayerEntity) return
+    override fun inventoryTick(stack: ItemStack, world: ServerLevel, entity: Entity, slot: EquipmentSlot?) {
+        if(entity !is Player) return
         if(!hasDistributeEnergy(stack)) return
 
         distributeEnergyToInventory(
@@ -66,12 +72,18 @@ abstract class AbstractItemBattery: Item(Settings().maxCount(1)), SimpleEnergyIt
         )
     }
 
-    override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text>, context: net.minecraft.client.item.TooltipContext) {
-        tooltip.add(getEnergyTooltipText(stack, primaryStyle, secondaryStyle, isPristineEnergy()))
-        tooltip.add(getEnabledText(stack))
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        display: TooltipDisplay,
+        tooltip: Consumer<Component>,
+        flag: TooltipFlag
+    ) {
+        tooltip.accept(getEnergyTooltipText(stack, primaryStyle, secondaryStyle, isPristineEnergy()))
+        tooltip.accept(getEnabledText(stack))
     }
 
-    override fun hasGlint(stack: ItemStack?): Boolean {
+    override fun isFoil(stack: ItemStack): Boolean {
         return getStoredEnergy(stack) >= getEnergyCapacity(stack)
     }
 
@@ -85,16 +97,16 @@ abstract class AbstractItemBattery: Item(Settings().maxCount(1)), SimpleEnergyIt
     }
 
     open val primaryStyle: Style = ENERGY_STYLE
-    open val secondaryStyle: Style = Style.EMPTY.withFormatting(Formatting.YELLOW)
+    open val secondaryStyle: Style = Style.EMPTY.applyFormats(ChatFormatting.YELLOW)
 
 
-    private fun getEnabledText(stack: ItemStack): Text {
-        val enabledText = Text.translatable("tooltip.dml-refabricated.distribute_energy")
+    private fun getEnabledText(stack: ItemStack): Component {
+        val enabledText = Component.translatable("tooltip.dml-refabricated.distribute_energy")
         return getBooleanInfoText(enabledText, hasDistributeEnergy(stack), primaryStyle, secondaryStyle)
     }
 
     private fun hasDistributeEnergy(stack: ItemStack): Boolean {
-        return stack.orCreateNbt.getBoolean(distributeEnergyKey)
+        return stack.customDataTag.getBooleanOr(distributeEnergyKey, false)
     }
 
     private val distributeEnergyKey = "dml-refabricated:distribute_energy"

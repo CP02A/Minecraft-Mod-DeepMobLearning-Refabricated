@@ -1,6 +1,6 @@
 package dev.nathanpb.dml.utils
 
-import net.minecraft.util.Rarity
+import net.minecraft.world.item.Rarity
 
 data class ItemTuple(val identifier: String, val shown: Boolean = true)
 

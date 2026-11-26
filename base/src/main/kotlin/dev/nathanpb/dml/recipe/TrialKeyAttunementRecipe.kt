@@ -19,76 +19,86 @@
 
 package dev.nathanpb.dml.recipe
 
+import com.mojang.serialization.MapCodec
+import com.mojang.serialization.codecs.RecordCodecBuilder
 import dev.nathanpb.dml.data.DataModelData
 import dev.nathanpb.dml.data.TrialKeyData
 import dev.nathanpb.dml.data.dataModel
 import dev.nathanpb.dml.data.trialKeyData
-import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.item.ItemDataModel
 import dev.nathanpb.dml.item.ItemTrialKey
-import dev.nathanpb.dml.utils.items
-import net.minecraft.inventory.Inventory
-import net.minecraft.inventory.RecipeInputInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.recipe.CraftingRecipe
-import net.minecraft.recipe.Ingredient
-import net.minecraft.recipe.RecipeType
-import net.minecraft.recipe.ShapelessRecipe
-import net.minecraft.recipe.book.CraftingRecipeCategory
-import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.util.Identifier
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.world.World
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.ItemStackTemplate
+import net.minecraft.world.item.crafting.CraftingBookCategory
+import net.minecraft.world.item.crafting.CraftingInput
+import net.minecraft.world.item.crafting.CraftingRecipe
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.crafting.NormalCraftingRecipe
+import net.minecraft.world.item.crafting.PlacementInfo
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeSerializer
+import net.minecraft.world.level.Level
 
+/** A shapeless recipe that binds the trial key to the category and tier of the data model in the grid. */
 class TrialKeyAttuneRecipe (
-    private val id: Identifier,
-    inputs: DefaultedList<Ingredient>,
-    private val output: ItemStack
-) : ShapelessRecipe(
-    id,
-    identifier("trial_key_attune").toString(),
-    CraftingRecipeCategory.MISC,
-    output,
-    inputs
-) {
+    val inputs: List<Ingredient>,
+    private val output: ItemStackTemplate
+) : NormalCraftingRecipe(Recipe.CommonInfo(true), CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, "")) {
 
-    override fun craft(recipeInputInventory: RecipeInputInventory, dynamicRegistryManager: DynamicRegistryManager): ItemStack = output.copy().apply {
-        findDataModel(recipeInputInventory)?.let {
+    val result: ItemStack get() = output.create()
+
+    override fun assemble(input: CraftingInput): ItemStack = output.create().apply {
+        findDataModel(input)?.let {
             trialKeyData = TrialKeyData.fromDataModelData(it)
         }
     }
 
-    override fun getId() = id
+    override fun getSerializer() = SERIALIZER
 
-    override fun getType(): RecipeType<CraftingRecipe> = RecipeType.CRAFTING
+    override fun createPlacementInfo(): PlacementInfo = PlacementInfo.create(inputs)
 
-    override fun fits(width: Int, height: Int) = true
-
-    override fun getSerializer() = TRIAL_KEY_ATTUNEMENT_SERIALIZER
-
-    override fun getOutput(dynamicRegistryManager: DynamicRegistryManager): ItemStack = output.copy()
-
-    override fun matches(craftingInventory: RecipeInputInventory, world: World): Boolean {
-        val dataModel = findDataModel(craftingInventory)
-        return super.matches(craftingInventory, world)
-                && dataModel != null
-                && !hasBoundedTrialKey(craftingInventory)
+    override fun matches(input: CraftingInput, world: Level): Boolean {
+        if (input.ingredientCount() != inputs.size || !input.stackedContents().canCraft(this, null)) return false
+        val dataModel = findDataModel(input)
+        return dataModel != null
+                && !hasBoundedTrialKey(input)
                 && hasTrialKeyRecipe(dataModel, world)
     }
 
-    private fun findDataModel(inv: Inventory) = inv.items().firstOrNull {
+    private fun findDataModel(inv: CraftingInput) = inv.items().firstOrNull {
         it.item is ItemDataModel && it.dataModel.category != null
     }?.dataModel
 
-    private fun hasBoundedTrialKey(inv: Inventory) = inv.items().any {
+    private fun hasBoundedTrialKey(inv: CraftingInput) = inv.items().any {
         it.item is ItemTrialKey && it.trialKeyData != null
     }
 
-    private fun hasTrialKeyRecipe(model: DataModelData, world: World) : Boolean {
-        return world.recipeManager.values()
-            .filterIsInstance(TrialKeystoneRecipe::class.java)
-            .any {
-                model.category == it.category && it.tier == model.tier()
-            }
+    /** Recipes only exist on the server: the client accepts every data model (the server has the last word). */
+    private fun hasTrialKeyRecipe(model: DataModelData, world: Level) : Boolean {
+        if (world.isClientSide) return true
+        return recipesOf(world, RECIPE_TRIAL_KEYSTONE).any {
+            model.category == it.category && it.tier == model.tier()
+        }
+    }
+
+    companion object {
+        val CODEC: MapCodec<TrialKeyAttuneRecipe> = RecordCodecBuilder.mapCodec { i ->
+            i.group(
+                Ingredient.CODEC.listOf(1, 9).fieldOf("ingredients").forGetter(TrialKeyAttuneRecipe::inputs),
+                ItemStackTemplate.CODEC.fieldOf("result").forGetter { it.output }
+            ).apply(i, ::TrialKeyAttuneRecipe)
+        }
+
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, TrialKeyAttuneRecipe> = StreamCodec.composite(
+            Ingredient.CONTENTS_STREAM_CODEC.apply(ByteBufCodecs.list()), TrialKeyAttuneRecipe::inputs,
+            ItemStackTemplate.STREAM_CODEC, { it.output },
+            ::TrialKeyAttuneRecipe
+        )
+
+        @Suppress("DEPRECATION")
+        val SERIALIZER = RecipeSerializer(CODEC, STREAM_CODEC)
     }
 }

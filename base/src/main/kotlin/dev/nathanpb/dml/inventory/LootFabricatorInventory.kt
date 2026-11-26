@@ -19,25 +19,32 @@
 
 package dev.nathanpb.dml.inventory
 
-import dev.nathanpb.dml.utils.toIntArray
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.util.math.Direction
+import net.minecraft.core.Direction
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.item.ItemStack
 
-class LootFabricatorInventory : SimpleInventory(11), SidedInventory {
+class LootFabricatorInventory : SimpleContainer(11), WorldlyContainer {
 
     companion object {
         const val INPUT_SLOT = 0
-        val OUTPUT_SLOTS = (1..9).toIntArray()
+        val OUTPUT_SLOTS = (1..9).toList().toIntArray()
         const val ENERGY_INPUT = 10
     }
 
-    val stackInInputSlot: ItemStack?
-        get() = getStack(INPUT_SLOT)
+    /** Called on every change (SimpleContainer has no listeners any more). */
+    var onChanged: () -> Unit = {}
+
+    override fun setChanged() {
+        super.setChanged()
+        onChanged()
+    }
+
+    val stackInInputSlot: ItemStack
+        get() = getItem(INPUT_SLOT)
 
     // TODO find a way to check with the world's recipeManager
-    override fun canInsert(slot: Int, stack: ItemStack, dir: Direction?) = slot == INPUT_SLOT
-    override fun canExtract(slot: Int, stack: ItemStack, dir: Direction) = slot in OUTPUT_SLOTS
-    override fun getAvailableSlots(side: Direction?) = (0 until size()).toIntArray()
+    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, dir: Direction?) = slot == INPUT_SLOT
+    override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, dir: Direction) = slot in OUTPUT_SLOTS
+    override fun getSlotsForFace(side: Direction) = (0 until containerSize).toList().toIntArray()
 }

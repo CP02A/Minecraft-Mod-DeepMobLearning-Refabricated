@@ -22,7 +22,7 @@ package dev.nathanpb.dml.enums
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.baseConfig
 import dev.nathanpb.dml.utils.takeOrNull
-import net.minecraft.text.Text
+import net.minecraft.network.chat.Component
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -48,8 +48,8 @@ enum class DataModelTier(textEntry: String, private val dataAmountSupplier: ()->
         }
     }
 
-    val text = Text.translatable(textEntry)
-    val glitchUpgradeOddsText = Text.literal("${(glitchUpgradeOdds * 100).toInt()}%")
+    val text = Component.translatable(textEntry)
+    val glitchUpgradeOddsText = Component.literal("${(glitchUpgradeOdds * 100).toInt()}%")
     fun isMaxTier() = this == values().last()
     fun nextTierOrCurrent() = if (isMaxTier()) SELF_AWARE else values()[ordinal+1]
     val defaultWaveEntityCount = ceil((ordinal + 1) * 1.5).toInt()

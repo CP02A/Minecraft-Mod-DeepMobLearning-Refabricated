@@ -29,37 +29,35 @@ import dev.nathanpb.dml.trial.TrialKeystoneIllegalStartException
 import dev.nathanpb.dml.trial.TrialKeystoneWrongTerrainException
 import dev.nathanpb.dml.utils.RenderUtils
 import dev.nathanpb.dml.utils.takeOrNull
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.Block
-import net.minecraft.block.BlockEntityProvider
-import net.minecraft.block.BlockState
-import net.minecraft.block.ShapeContext
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.EntityBlock
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.entity.player.Player
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.phys.shapes.VoxelShape
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
 
-class BlockTrialKeystone : Block(
-    FabricBlockSettings.create()
-        .strength(10F, 12F)
-), BlockEntityProvider {
+class BlockTrialKeystone(properties: Properties) : Block(
+    properties.strength(10F, 12F)
+), EntityBlock {
 
-    override fun onUse(state: BlockState, world: World, pos: BlockPos, player: PlayerEntity, hand: Hand, hit: BlockHitResult): ActionResult {
-        if (!world.isClient) {
+    override fun useItemOn(stackInHand: ItemStack, state: BlockState, world: Level, pos: BlockPos, player: Player, hand: InteractionHand, hit: BlockHitResult): InteractionResult {
+        if (!world.isClientSide) {
             (world.getBlockEntity(pos) as? BlockEntityTrialKeystone)?.let { blockEntity ->
-                val stackInHand = player.getStackInHand(hand)
                 if (stackInHand.item is ItemTrialKey) {
                     stackInHand.trialKeyData?.let { data ->
                         val recipe = TrialKeystoneRecipe.findOrNull(world, data)
@@ -76,51 +74,52 @@ class BlockTrialKeystone : Block(
                                 )
 
                                 if (!player.isCreative && baseConfig.trial.trialKeyConsume)
-                                    stackInHand.decrement(1)
+                                    stackInHand.shrink(1)
 
-                                return ActionResult.CONSUME
+                                return InteractionResult.CONSUME
                             } catch (ex: TrialKeystoneIllegalStartException) {
-                                return ActionResult.PASS
+                                return InteractionResult.PASS
                             } catch (ex: TrialKeystoneWrongTerrainException) {
-                                player.sendMessage(
-                                    Text.translatable("chat.$MOD_ID.trial_wrong_terrain").setStyle(RenderUtils.STYLE)
+                                player.sendSystemMessage(
+                                    Component.translatable("chat.$MOD_ID.trial_wrong_terrain").setStyle(RenderUtils.STYLE)
                                 )
                                 blockEntity.checkTerrain().forEach {
-                                    player.sendMessage(
+                                    player.sendSystemMessage(
                                         getInvalidTerrainText(
                                             it.x, it.y, it.z,
-                                            !world.getBlockState(it).isSideSolidFullSquare(world, it, Direction.UP)
+                                            !world.getBlockState(it).isFaceSturdy(world, it, Direction.UP)
                                         )
                                     )
                                 }
                             }
                         } else {
-                            player.sendMessage(Text.translatable("chat.${MOD_ID}.trial_no_recipe"), false)
+                            player.sendSystemMessage(Component.translatable("chat.${MOD_ID}.trial_no_recipe"))
                         }
-                        return ActionResult.FAIL
+                        return InteractionResult.FAIL
                     }
                 }
             }
         }
-        return super.onUse(state, world, pos, player, hand, hit)
+        return super.useItemOn(stackInHand, state, world, pos, player, hand, hit)
     }
 
-    override fun getOutlineShape(state: BlockState?, world: BlockView?, pos: BlockPos?, context: ShapeContext?): VoxelShape {
-        return VoxelShapes.cuboid(0.0, 0.0, 0.0, 1.0, 0.5, 1.0)
+    override fun getShape(state: BlockState, world: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
+        return Shapes.box(0.0, 0.0, 0.0, 1.0, 0.5, 1.0)
     }
 
-    override fun <T : BlockEntity?> getTicker(world: World, state: BlockState, type: BlockEntityType<T>): BlockEntityTicker<T> {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : BlockEntity> getTicker(world: Level, state: BlockState, type: BlockEntityType<T>): BlockEntityTicker<T> {
         return BlockEntityTrialKeystone.ticker as BlockEntityTicker<T>
     }
 
-    override fun createBlockEntity(pos: BlockPos, state: BlockState) = BlockEntityTrialKeystone(pos, state)
+    override fun newBlockEntity(pos: BlockPos, state: BlockState) = BlockEntityTrialKeystone(pos, state)
 
 
-    private fun getInvalidTerrainText(x: Int, y: Int, z: Int, isFloor: Boolean): MutableText {
-        return Text.literal("- ").formatted(Formatting.WHITE)
-            .append(Text.translatable("chat.$MOD_ID.trial_wrong_terrain." + (if(isFloor) "floor" else "dome"))
+    private fun getInvalidTerrainText(x: Int, y: Int, z: Int, isFloor: Boolean): MutableComponent {
+        return Component.literal("- ").withStyle(ChatFormatting.WHITE)
+            .append(Component.translatable("chat.$MOD_ID.trial_wrong_terrain." + (if(isFloor) "floor" else "dome"))
                 .setStyle(RenderUtils.STYLE))
-            .append(Text.literal(String.format(" (%d, %d, %d)", x, y, z))
-                .formatted(Formatting.WHITE))
+            .append(Component.literal(String.format(" (%d, %d, %d)", x, y, z))
+                .withStyle(ChatFormatting.WHITE))
     }
 }
