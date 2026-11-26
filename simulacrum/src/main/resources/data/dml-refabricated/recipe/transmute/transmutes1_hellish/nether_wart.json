@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "dml-refabricated:hellish_matter" },
-    { "item": "minecraft:red_mushroom" }
+    "dml-refabricated:hellish_matter",
+    "minecraft:red_mushroom"
   ],
   "result": {
-    "item": "minecraft:nether_wart",
+    "id": "minecraft:nether_wart",
     "count": 4
   }
 }

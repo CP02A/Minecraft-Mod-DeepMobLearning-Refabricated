@@ -3,13 +3,13 @@ package dev.nathanpb.dml.simulacrum.screen
 import dev.nathanpb.dml.data.dataModel
 import dev.nathanpb.dml.item.ITEM_POLYMER_CLAY
 import dev.nathanpb.dml.item.ItemDataModel
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.screen.slot.Slot
+import net.minecraft.world.Container
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.inventory.Slot
 
-class SlotSimulationChamber(inventory: Inventory?, index: Int, x: Int, y: Int) : Slot(inventory, index, x, y) {
+class SlotSimulationChamber(inventory: Container, index: Int, x: Int, y: Int) : Slot(inventory, index, x, y) {
 
-    override fun canInsert(stack: ItemStack): Boolean {
+    override fun mayPlace(stack: ItemStack): Boolean {
         return when(index) {
             0 -> {
                 !stack.isEmpty &&
@@ -18,7 +18,7 @@ class SlotSimulationChamber(inventory: Inventory?, index: Int, x: Int, y: Int) :
             }
             1 -> {
                 !stack.isEmpty &&
-                stack.isOf(ITEM_POLYMER_CLAY)
+                stack.`is`(ITEM_POLYMER_CLAY)
             }
             else -> false
         }

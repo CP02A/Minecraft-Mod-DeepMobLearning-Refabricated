@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "dml-refabricated:overworld_matter" },
-    { "item": "minecraft:wheat_seeds" }
+    "dml-refabricated:overworld_matter",
+    "minecraft:wheat_seeds"
   ],
   "result": {
-    "item": "minecraft:carrot",
+    "id": "minecraft:carrot",
     "count": 2
   }
 }

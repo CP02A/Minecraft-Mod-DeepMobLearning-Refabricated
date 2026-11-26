@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "minecraft:bone" },
-    { "item": "dml-refabricated:hellish_matter" },
-    { "item": "dml-refabricated:hellish_matter" }
+    "minecraft:bone",
+    "dml-refabricated:hellish_matter",
+    "dml-refabricated:hellish_matter"
   ],
   "result": {
-    "item": "minecraft:blaze_rod"
+    "id": "minecraft:blaze_rod"
   }
 }

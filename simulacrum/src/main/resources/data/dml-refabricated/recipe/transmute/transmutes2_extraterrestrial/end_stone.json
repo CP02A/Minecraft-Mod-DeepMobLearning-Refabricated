@@ -1,13 +1,13 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "minecraft:sandstone" },
-    { "item": "minecraft:sandstone" },
-    { "item": "minecraft:ender_pearl" },
-    { "item": "dml-refabricated:extraterrestrial_matter" }
+    "minecraft:sandstone",
+    "minecraft:sandstone",
+    "minecraft:ender_pearl",
+    "dml-refabricated:extraterrestrial_matter"
   ],
   "result": {
-    "item": "minecraft:end_stone",
+    "id": "minecraft:end_stone",
     "count": 8
   }
 }

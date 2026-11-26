@@ -2,41 +2,35 @@ package dev.nathanpb.dml.simulacrum.screen
 
 import dev.nathanpb.dml.simulacrum.SCS_HANDLER_TYPE
 import dev.nathanpb.dml.simulacrum.block.chamber.BlockEntitySimulationChamber
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.PropertyDelegate
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.slot.Slot
-import net.minecraft.screen.slot.SlotActionType
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.core.BlockPos
+import net.minecraft.world.Container
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerData
+import net.minecraft.world.inventory.ContainerInput
+import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.Level
 
 
-class ScreenHandlerSimulationChamber(syncId: Int, playerInventory: PlayerInventory?, packetByteBuf: PacketByteBuf) :
-    ScreenHandler(SCS_HANDLER_TYPE, syncId) {
+/** Opened with the position of the chamber (see [BlockEntitySimulationChamber.getScreenOpeningData]). */
+class ScreenHandlerSimulationChamber(syncId: Int, playerInventory: Inventory, var blockPos: BlockPos) :
+    AbstractContainerMenu(SCS_HANDLER_TYPE, syncId) {
 
-    constructor(syncId: Int, playerInventory: PlayerInventory?, inventory: Inventory?, blockEntity: BlockEntitySimulationChamber) : this(syncId, playerInventory, PacketByteBufs.create().writeBlockPos(blockEntity.pos))
-
-    private val inventory: Inventory?
-    private val player: PlayerEntity
-    private val blockEntity: BlockEntitySimulationChamber?
-    var blockPos: BlockPos
-    private val world: World
-    var propertyDelegate: PropertyDelegate
+    private val inventory: Container
+    private val player: Player = playerInventory.player
+    private val blockEntity: BlockEntitySimulationChamber
+    private val world: Level = player.level()
+    var propertyDelegate: ContainerData
 
     init {
-        player = playerInventory!!.player
-        world = player.world
-        blockPos = packetByteBuf.readBlockPos()
-        blockEntity = playerInventory.player.entityWorld.getBlockEntity(blockPos) as BlockEntitySimulationChamber?
+        blockEntity = world.getBlockEntity(blockPos) as BlockEntitySimulationChamber
         inventory = blockEntity
-        propertyDelegate = blockEntity!!.propertyDelegate
-        checkSize(inventory, 4)
-        if (world.isClient) addProperties(propertyDelegate)
+        propertyDelegate = blockEntity.propertyDelegate
+        checkContainerSize(inventory, 4)
+        // The client reads the energy of its copy of the block entity (synced through the update tag)
+        if (world.isClientSide) addDataSlots(propertyDelegate)
         addSlots()
         addInventorySlots()
     }
@@ -44,8 +38,8 @@ class ScreenHandlerSimulationChamber(syncId: Int, playerInventory: PlayerInvento
     val syncedEnergy: Int
         get() = propertyDelegate[0]
 
-    override fun canUse(player: PlayerEntity): Boolean {
-        return inventory!!.canPlayerUse(player)
+    override fun stillValid(player: Player): Boolean {
+        return inventory.stillValid(player)
     }
 
     private fun addSlots() {
@@ -74,41 +68,41 @@ class ScreenHandlerSimulationChamber(syncId: Int, playerInventory: PlayerInvento
         }
     }
 
-    override fun sendContentUpdates() {
-        super.sendContentUpdates()
-        if (!world.isClient) {
+    override fun broadcastChanges() {
+        super.broadcastChanges()
+        if (!world.isClientSide) {
             // Update the BE every tick while container is open
-            blockEntity!!.updateState()
+            blockEntity.updateState()
         }
     }
 
-    override fun quickMove(player: PlayerEntity, index: Int): ItemStack {
+    override fun quickMoveStack(player: Player, index: Int): ItemStack {
         var newStack = ItemStack.EMPTY
-        if (!world.isClient) {
+        if (!world.isClientSide) {
             val slot = slots[index]
-            if (slot != null && slot.hasStack()) {
-                val originalStack = slot.stack
+            if (slot.hasItem()) {
+                val originalStack = slot.item
                 newStack = originalStack.copy()
-                if (index < inventory!!.size()) {
-                    if (!insertItem(originalStack, inventory.size(), slots.size, true)) {
+                if (index < inventory.containerSize) {
+                    if (!moveItemStackTo(originalStack, inventory.containerSize, slots.size, true)) {
                         return ItemStack.EMPTY
                     }
-                } else if (!insertItem(originalStack, 0, inventory.size(), false)) {
+                } else if (!moveItemStackTo(originalStack, 0, inventory.containerSize, false)) {
                     return ItemStack.EMPTY
                 }
                 if (originalStack.isEmpty) {
-                    slot.stack = ItemStack.EMPTY
+                    slot.setByPlayer(ItemStack.EMPTY)
                 } else {
-                    slot.markDirty()
+                    slot.setChanged()
                 }
             }
         }
         return newStack
     }
 
-    override fun onSlotClick(slotIndex: Int, button: Int, actionType: SlotActionType, player: PlayerEntity) {
-        if (!world.isClient) {
-            super.onSlotClick(slotIndex, button, actionType, player)
+    override fun clicked(slotIndex: Int, button: Int, actionType: ContainerInput, player: Player) {
+        if (!world.isClientSide) {
+            super.clicked(slotIndex, button, actionType, player)
         }
     }
 

@@ -13,37 +13,39 @@ import dev.nathanpb.dml.simulacrum.screen.ScreenHandlerSimulationChamber
 import dev.nathanpb.dml.simulacrum.util.DataModelUtil
 import dev.nathanpb.dml.simulacrum.util.DataModelUtil.Companion.dataModel2MatterMap
 import dev.nathanpb.dml.simulacrum.util.ImplementedInventory
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.Inventories
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.network.listener.ClientPlayPacketListener
-import net.minecraft.network.packet.Packet
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket
-import net.minecraft.registry.Registries
-import net.minecraft.screen.PropertyDelegate
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.server.world.ServerChunkManager
-import net.minecraft.text.Text
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.core.NonNullList
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.Component
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerData
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
 import team.reborn.energy.api.base.SimpleEnergyStorage
 import java.util.*
 
 
-class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEntity(SIMULATION_CHAMBER_ENTITY, pos, state), ImplementedInventory, ExtendedScreenHandlerFactory, SidedInventory {
+/** As a Container, its items are dropped by BlockEntity#preRemoveSideEffects when the block is removed. */
+class BlockEntitySimulationChamber(pos: BlockPos, state: BlockState) : BlockEntity(SIMULATION_CHAMBER_ENTITY, pos, state), ImplementedInventory, ExtendedMenuProvider<BlockPos>, WorldlyContainer {
 
-    private val inventory = DefaultedList.ofSize(4, ItemStack.EMPTY)
+    private val inventory = NonNullList.withSize(4, ItemStack.EMPTY)
     var ticks = 0
     var percentDone = 0
     var isCrafting = false
@@ -52,7 +54,7 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
     private var currentDataModelType: EntityCategory? = null
     var energyStorage = SimpleEnergyStorage(2000000, 25600, 0)
 
-    var propertyDelegate: PropertyDelegate = object : PropertyDelegate {
+    var propertyDelegate: ContainerData = object : ContainerData {
         override fun get(index: Int): Int {
             return energyStorage.getAmount().toInt()
         }
@@ -61,62 +63,62 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
             energyStorage.amount = value.toLong()
         }
 
-        override fun size(): Int {
+        override fun getCount(): Int {
             return 1
         }
     }
 
     fun updateState() {
-        val state = world!!.getBlockState(getPos())
-        world!!.updateListeners(getPos(), state, state, 3)
+        val world = level ?: return
+        val state = world.getBlockState(blockPos)
+        world.sendBlockUpdated(blockPos, state, state, 3)
     }
 
     fun dataModelTypeChanged(): Boolean {
         return currentDataModelType != dataModelStack.dataModel.category
     }
 
-    override fun readNbt(compound: NbtCompound) {
-        super.readNbt(compound)
-        energyStorage.amount = compound.getLong("energy")
-        byproductSuccess = compound.getBoolean("byproductSuccess")
-        isCrafting = compound.getBoolean("isCrafting")
-        percentDone = compound.getInt("percentDone")
+    override fun loadAdditional(input: ValueInput) {
+        super.loadAdditional(input)
+        energyStorage.amount = input.getLongOr("energy", 0L)
+        byproductSuccess = input.getBooleanOr("byproductSuccess", false)
+        isCrafting = input.getBooleanOr("isCrafting", false)
+        percentDone = input.getIntOr("percentDone", 0)
 
-        val currentDataModelType = compound.getString("currentDataModelType")
-        if(currentDataModelType != null && currentDataModelType.isNotEmpty()) {
+        val currentDataModelType = input.getStringOr("currentDataModelType", "")
+        if(currentDataModelType.isNotEmpty()) {
             this.currentDataModelType = enumValueOf<EntityCategory>(currentDataModelType)
         }
-        Inventories.readNbt(compound, inventory)
+        inventory.fill(ItemStack.EMPTY)
+        ContainerHelper.loadAllItems(input, inventory)
     }
 
-    public override fun writeNbt(compound: NbtCompound) {
-        super.writeNbt(compound)
-        compound.putLong("energy", energyStorage.amount)
-        compound.putBoolean("byproductSuccess", byproductSuccess)
-        compound.putBoolean("isCrafting", isCrafting)
-        compound.putInt("percentDone", percentDone)
-        if(currentDataModelType != null) {
-            compound.putString("currentDataModelType", currentDataModelType!!.toString().uppercase())
+    override fun saveAdditional(output: ValueOutput) {
+        super.saveAdditional(output)
+        output.putLong("energy", energyStorage.amount)
+        output.putBoolean("byproductSuccess", byproductSuccess)
+        output.putBoolean("isCrafting", isCrafting)
+        output.putInt("percentDone", percentDone)
+        currentDataModelType?.let {
+            output.putString("currentDataModelType", it.toString().uppercase())
         }
-        Inventories.writeNbt(compound, inventory)
+        ContainerHelper.saveAllItems(output, inventory)
     }
 
-    override fun markDirty() {
-        super<BlockEntity>.markDirty()
-        super<ImplementedInventory>.markDirty()
-        if (!world!!.isClient) {
-            (world!!.chunkManager as ServerChunkManager).markForUpdate(getPos())
+    override fun setChanged() {
+        super<BlockEntity>.setChanged()
+        val world = level
+        if (world is ServerLevel) {
+            world.chunkSource.blockChanged(blockPos)
         }
     }
 
-    override fun toUpdatePacket(): Packet<ClientPlayPacketListener>? {
-        return BlockEntityUpdateS2CPacket.create(this)
+    override fun getUpdatePacket(): Packet<ClientGamePacketListener>? {
+        return ClientboundBlockEntityDataPacket.create(this)
     }
 
-    override fun toInitialChunkDataNbt(): NbtCompound {
-        val nbt = NbtCompound()
-        writeNbt(nbt)
-        return nbt
+    override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {
+        return saveWithoutMetadata(registries)
     }
 
     private fun startSimulation() {
@@ -129,21 +131,21 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
         percentDone = 0
         isCrafting = false
         // Only decrease input and increase output if not aborted, and only if on the server's BE
-        if (!abort && !world!!.isClient) {
+        if (!abort && level?.isClientSide == false) {
             energyStorage.amount -= DataModelUtil.getEnergyCost(dataModelStack)
             dataModelStack.dataModel.simulationCount++
             DataModelUtil.updateDataModel(dataModelStack)
             if (inventory[2].item is ItemMatter) {
                 inventory[2].count = living.count + 1
             } else {
-                inventory[2] = ItemStack(dataModel2MatterMap[currentDataModelType]?.type?.matter, 1)
+                inventory[2] = dataModel2MatterMap[currentDataModelType]?.type?.matter?.let { ItemStack(it, 1) } ?: ItemStack.EMPTY
             }
             if (byproductSuccess) {
                 byproductSuccess = false
                 if (inventory[3].item is ItemPristineMatter) {
-                    inventory[3].increment(1)
+                    inventory[3].grow(1)
                 } else {
-                    inventory[3] = ItemStack(dataModel2MatterMap[currentDataModelType]?.pristine, 1)
+                    inventory[3] = dataModel2MatterMap[currentDataModelType]?.pristine?.let { ItemStack(it, 1) } ?: ItemStack.EMPTY
                 }
             }
             updateState()
@@ -166,13 +168,13 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
 
 
     val dataModelStack: ItemStack
-        get() = getStack(0)
+        get() = getItem(0)
     private val polymerClay: ItemStack
-        get() = getStack(1)
+        get() = getItem(1)
     private val living: ItemStack
-        get() = getStack(2)
+        get() = getItem(2)
     private val pristine: ItemStack
-        get() = getStack(3)
+        get() = getItem(3)
 
     fun hasDataModel(): Boolean {
         return dataModelStack.item is ItemDataModel
@@ -180,7 +182,7 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
 
     fun hasPolymerClay(): Boolean {
         val stack = polymerClay
-        return stack.isOf(ITEM_POLYMER_CLAY) && stack.count > 0
+        return stack.`is`(ITEM_POLYMER_CLAY) && stack.count > 0
     }
 
     fun outputIsFull(): Boolean {
@@ -188,7 +190,7 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
         if (stack.isEmpty) {
             return false
         }
-        val stackLimitReached = stack.count == living.maxCount
+        val stackLimitReached = stack.count == living.maxStackSize
         val outputMatches = dataModelMatchesOutput(
             dataModelStack,
             living
@@ -201,7 +203,7 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
         if (stack.isEmpty) {
             return false
         }
-        val stackLimitReached = stack.count == inventory[3].maxCount
+        val stackLimitReached = stack.count == inventory[3].maxStackSize
         val outputMatches = dataModelMatchesPristine(
             dataModelStack,
             pristine
@@ -209,39 +211,39 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
         return stackLimitReached || !outputMatches
     }
 
-    override fun getDisplayName(): Text {
-        return Text.translatable("block.dml-refabricated.simulation_chamber")
+    override fun getDisplayName(): Component {
+        return Component.translatable("block.dml-refabricated.simulation_chamber")
     }
 
-    override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler {
-        return ScreenHandlerSimulationChamber(syncId, inv, this, this)
+    override fun createMenu(syncId: Int, inv: Inventory, player: Player): AbstractContainerMenu {
+        return ScreenHandlerSimulationChamber(syncId, inv, blockPos)
     }
 
-    override fun getItems(): DefaultedList<ItemStack?> {
+    override fun getItems(): NonNullList<ItemStack> {
         return inventory
     }
 
-    override fun writeScreenOpeningData(player: ServerPlayerEntity, buf: PacketByteBuf) {
-        buf.writeBlockPos(getPos())
-    }
+    override fun getScreenOpeningData(player: ServerPlayer): BlockPos = blockPos
 
-    override fun getAvailableSlots(side: Direction): IntArray {
+    override fun stillValid(player: Player): Boolean = net.minecraft.world.Container.stillValidBlockEntity(this, player)
+
+    override fun getSlotsForFace(side: Direction): IntArray {
         return if (side == Direction.UP) {
             intArrayOf(0, 1)
         } else intArrayOf(2, 3)
     }
 
-    override fun canInsert(slot: Int, stack: ItemStack, dir: Direction?): Boolean {
+    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, dir: Direction?): Boolean {
         return if (dir == Direction.UP) {
             when (slot) {
                 0 -> stack.item is ItemDataModel && stack.dataModel.category != null
-                1 -> stack.isOf(ITEM_POLYMER_CLAY)
+                1 -> stack.`is`(ITEM_POLYMER_CLAY)
                 else -> false
             }
         } else false
     }
 
-    override fun canExtract(slot: Int, stack: ItemStack, dir: Direction): Boolean {
+    override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, dir: Direction): Boolean {
         return if (dir != Direction.UP) {
             when (slot) {
                 2, 3 -> true
@@ -253,17 +255,17 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
     companion object {
         private fun dataModelMatchesOutput(stack: ItemStack, output: ItemStack): Boolean {
             val livingMatter: Item? = stack.dataModel.category?.matterType?.matter
-            return Registries.ITEM.getId(livingMatter) == Registries.ITEM.getId(output.item)
+            return livingMatter == output.item
         }
 
         private fun dataModelMatchesPristine(stack: ItemStack, pristine: ItemStack): Boolean {
             val pristineMatter: ItemPristineMatter? = dataModel2MatterMap[stack.dataModel.category]?.pristine
-            return Registries.ITEM.getId(pristineMatter) == Registries.ITEM.getId(pristine.item)
+            return pristineMatter == pristine.item
         }
 
-        fun tick(world: World, pos: BlockPos?, state: BlockState?, blockEntity: BlockEntitySimulationChamber) {
+        fun tick(world: Level, pos: BlockPos, state: BlockState, blockEntity: BlockEntitySimulationChamber) {
             blockEntity.ticks++
-            if (!world.isClient) {
+            if (!world.isClientSide) {
                 if (!blockEntity.isCrafting) {
                     if (blockEntity.canStartSimulation()) {
                         blockEntity.startSimulation()
@@ -292,7 +294,7 @@ class BlockEntitySimulationChamber(pos: BlockPos?, state: BlockState?) : BlockEn
                     blockEntity.finishSimulation(false)
                     return
                 }
-                blockEntity.markDirty()
+                blockEntity.setChanged()
             }
         }
     }

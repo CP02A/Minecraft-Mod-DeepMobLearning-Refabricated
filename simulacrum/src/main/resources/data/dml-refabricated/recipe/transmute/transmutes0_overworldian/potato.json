@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "dml-refabricated:overworld_matter" },
-    { "item": "minecraft:stick" }
+    "dml-refabricated:overworld_matter",
+    "minecraft:stick"
   ],
   "result": {
-    "item": "minecraft:potato",
+    "id": "minecraft:potato",
     "count": 2
   }
 }

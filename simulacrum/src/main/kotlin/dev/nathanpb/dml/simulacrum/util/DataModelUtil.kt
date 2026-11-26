@@ -7,8 +7,8 @@ import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.enums.MatterType
 import dev.nathanpb.dml.item.*
 import dev.nathanpb.dml.simulacrum.simulacrumConfig
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
 
 class DataModelUtil {
 

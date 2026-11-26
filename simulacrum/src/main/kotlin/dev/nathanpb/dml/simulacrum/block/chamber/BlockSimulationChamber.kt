@@ -1,91 +1,75 @@
 package dev.nathanpb.dml.simulacrum.block.chamber
 
+import dev.nathanpb.dml.block.horizontalPlacementState
 import dev.nathanpb.dml.simulacrum.SIMULATION_CHAMBER_ENTITY
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.*
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.screen.NamedScreenHandlerFactory
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.DirectionProperty
-import net.minecraft.state.property.Properties
-import net.minecraft.util.*
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.Containers
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.BaseEntityBlock
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Mirror
+import net.minecraft.world.level.block.RenderShape
+import net.minecraft.world.level.block.Rotation
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.block.state.properties.EnumProperty
+import net.minecraft.world.phys.BlockHitResult
 
-@Suppress("deprecated")
-class BlockSimulationChamber : BlockWithEntity(FabricBlockSettings.create().hardness(4F).resistance(3000F)) {
+class BlockSimulationChamber(properties: Properties) : BaseEntityBlock(properties.destroyTime(4F).explosionResistance(3000F)) {
 
-
-    override fun onUse(state: BlockState, world: World, pos: BlockPos?, player: PlayerEntity, hand: Hand?, hit: BlockHitResult?): ActionResult {
-        if(world.isClient()) return ActionResult.FAIL
-        val screenHandlerFactory = state.createScreenHandlerFactory(world, pos)
-        screenHandlerFactory?.let {
-            player.openHandledScreen(it)
+    override fun useWithoutItem(state: BlockState, world: Level, pos: BlockPos, player: Player, hit: BlockHitResult): InteractionResult {
+        if(world.isClientSide()) return InteractionResult.SUCCESS
+        state.getMenuProvider(world, pos)?.let {
+            player.openMenu(it)
         }
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
-    override fun createBlockEntity(pos: BlockPos?, state: BlockState?): BlockEntity {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return BlockEntitySimulationChamber(pos, state)
     }
 
-    override fun createScreenHandlerFactory(state: BlockState?, world: World, pos: BlockPos?): NamedScreenHandlerFactory? {
+    override fun getMenuProvider(state: BlockState, world: Level, pos: BlockPos): MenuProvider? {
         val blockEntity = world.getBlockEntity(pos)
-        return if(blockEntity is NamedScreenHandlerFactory) blockEntity else null
+        return if(blockEntity is MenuProvider) blockEntity else null
     }
 
-    override fun rotate(state: BlockState, rotation: BlockRotation): BlockState? {
-        return state.with(facing, rotation.rotate(state.get(facing)))
+    override fun rotate(state: BlockState, rotation: Rotation): BlockState {
+        return state.setValue(facing, rotation.rotate(state.getValue(facing)))
     }
 
-    override fun mirror(state: BlockState, mirror: BlockMirror): BlockState? {
-        return state.rotate(mirror.getRotation(state.get(facing)))
+    override fun mirror(state: BlockState, mirror: Mirror): BlockState {
+        return state.rotate(mirror.getRotation(state.getValue(facing)))
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block?, BlockState?>) {
-        builder.add(Properties.HORIZONTAL_FACING)
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        builder.add(BlockStateProperties.HORIZONTAL_FACING)
     }
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState? {
-        var blockState = defaultState
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState = horizontalPlacementState(this, ctx)
 
-        for(direction in ctx.placementDirections) {
-            if(direction.axis.isHorizontal) {
-                blockState = blockState.with(HorizontalFacingBlock.FACING, direction.opposite)
-                if(blockState.canPlaceAt(ctx.world, ctx.blockPos)) return blockState
-            }
-        }
-        return blockState.with(HorizontalFacingBlock.FACING, Direction.NORTH)
+    // The inventory is dropped by the block entity (BlockEntity#preRemoveSideEffects, since 1.21.5)
+    override fun affectNeighborsAfterRemoval(state: BlockState, world: ServerLevel, pos: BlockPos, movedByPiston: Boolean) {
+        Containers.updateNeighboursAfterDestroy(state, world, pos)
     }
 
-    override fun onStateReplaced(state: BlockState, world: World, pos: BlockPos?, newState: BlockState, moved: Boolean) {
-        if(state.block !== newState.block) {
-            val blockEntity = world.getBlockEntity(pos)
-            if(blockEntity is BlockEntitySimulationChamber) {
-                ItemScatterer.spawn(world, pos, blockEntity as BlockEntitySimulationChamber?)
-                world.updateComparators(pos, this)
-            }
-            super.onStateReplaced(state, world, pos, newState, moved)
-        }
+    override fun getRenderShape(state: BlockState): RenderShape {
+        return RenderShape.MODEL
     }
 
-    override fun getRenderType(state: BlockState?): BlockRenderType {
-        return BlockRenderType.MODEL
+    override fun <T : BlockEntity> getTicker(world: Level, state: BlockState, type: BlockEntityType<T>): BlockEntityTicker<T>? {
+        return createTickerHelper(type, SIMULATION_CHAMBER_ENTITY, BlockEntitySimulationChamber::tick)
     }
 
-    override fun <T : BlockEntity?> getTicker(world: World?, state: BlockState?, type: BlockEntityType<T>?): BlockEntityTicker<T>? {
-        return checkType(type, SIMULATION_CHAMBER_ENTITY) { _, pos: BlockPos?, _, blockEntity: BlockEntitySimulationChamber? ->
-            if (world != null && blockEntity != null) {
-                BlockEntitySimulationChamber.tick(world, pos, state, blockEntity)
-            }
-        }
-    }
-
-    private val facing: DirectionProperty = Properties.HORIZONTAL_FACING
+    private val facing: EnumProperty<Direction> = BlockStateProperties.HORIZONTAL_FACING
 }

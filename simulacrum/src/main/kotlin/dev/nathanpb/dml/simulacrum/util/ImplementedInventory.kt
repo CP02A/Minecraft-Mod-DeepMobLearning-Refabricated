@@ -1,41 +1,23 @@
 package dev.nathanpb.dml.simulacrum.util
 
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventories
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.util.collection.DefaultedList
+import net.minecraft.core.NonNullList
+import net.minecraft.world.Container
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 
-interface ImplementedInventory: Inventory {
+interface ImplementedInventory: Container {
 
     /**
      * Retrieves the item list of this inventory.
      * Must return the same instance every time it's called.
      */
-    fun getItems(): DefaultedList<ItemStack?>
-
-    /**
-     * Creates an inventory from the item list.
-     */
-    fun of(items: DefaultedList<ItemStack?>): ImplementedInventory? {
-        return object : ImplementedInventory {
-            override fun getItems(): DefaultedList<ItemStack?> {
-                return items
-            }
-        }
-    }
-
-    /**
-     * Creates a new inventory with the specified size.
-     */
-    fun ofSize(size: Int): ImplementedInventory? {
-        return of(DefaultedList.ofSize(size, ItemStack.EMPTY))
-    }
+    fun getItems(): NonNullList<ItemStack>
 
     /**
      * Returns the inventory size.
      */
-    override fun size(): Int {
+    override fun getContainerSize(): Int {
         return getItems().size
     }
 
@@ -44,19 +26,13 @@ interface ImplementedInventory: Inventory {
      * @return true if this inventory has only empty stacks, false otherwise.
      */
     override fun isEmpty(): Boolean {
-        for (i in 0 until size()) {
-            val stack = getStack(i)
-            if (!stack.isEmpty) {
-                return false
-            }
-        }
-        return true
+        return getItems().all { it.isEmpty }
     }
 
     /**
      * Retrieves the item in the slot.
      */
-    override fun getStack(slot: Int): ItemStack {
+    override fun getItem(slot: Int): ItemStack {
         return getItems()[slot]
     }
 
@@ -66,10 +42,10 @@ interface ImplementedInventory: Inventory {
      * @param count How many items to remove. If there are fewer items in the slot than what are requested,
      * takes all items in that slot.
      */
-    override fun removeStack(slot: Int, count: Int): ItemStack? {
-        val result = Inventories.splitStack(getItems(), slot, count)
+    override fun removeItem(slot: Int, count: Int): ItemStack {
+        val result = ContainerHelper.removeItem(getItems(), slot, count)
         if (!result.isEmpty) {
-            markDirty()
+            setChanged()
         }
         return result
     }
@@ -78,28 +54,25 @@ interface ImplementedInventory: Inventory {
      * Removes all items from an inventory slot.
      * @param slot The slot to remove from.
      */
-    override fun removeStack(slot: Int): ItemStack? {
-        return Inventories.removeStack(getItems(), slot)
+    override fun removeItemNoUpdate(slot: Int): ItemStack {
+        return ContainerHelper.takeItem(getItems(), slot)
     }
 
     /**
      * Replaces the current stack in an inventory slot with the provided stack.
-     * @param slot  The inventory slot of which to replace the itemstack.
-     * @param stack The replacing itemstack. If the stack is too big for
-     * this inventory ([Inventory.getMaxCountPerStack]),
-     * it gets resized to this inventory's maximum amount.
+     * If the stack is too big for this inventory ([Container.getMaxStackSize]), it gets resized.
      */
-    override fun setStack(slot: Int, stack: ItemStack) {
+    override fun setItem(slot: Int, stack: ItemStack) {
         getItems()[slot] = stack
-        if (stack.count > maxCountPerStack) {
-            stack.count = maxCountPerStack
+        if (stack.count > maxStackSize) {
+            stack.count = maxStackSize
         }
     }
 
     /**
      * Clears the inventory.
      */
-    override fun clear() {
+    override fun clearContent() {
         getItems().clear()
     }
 
@@ -108,14 +81,14 @@ interface ImplementedInventory: Inventory {
      * Must be called after changes in the inventory, so that the game can properly save
      * the inventory contents and notify neighboring blocks of inventory changes.
      */
-    override fun markDirty() {
+    override fun setChanged() {
         // Override if you want behavior.
     }
 
     /**
      * @return true if the player can use the inventory, false otherwise.
      */
-    override fun canPlayerUse(player: PlayerEntity?): Boolean {
+    override fun stillValid(player: Player): Boolean {
         return true
     }
 }

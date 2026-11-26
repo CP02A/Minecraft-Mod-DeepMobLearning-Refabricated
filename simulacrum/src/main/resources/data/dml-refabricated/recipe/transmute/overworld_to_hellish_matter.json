@@ -6,14 +6,10 @@
     " O "
   ],
   "key": {
-    "O": {
-      "item": "dml-refabricated:overworld_matter"
-    },
-    "N": {
-      "item": "minecraft:netherrack"
-    }
+    "O": "dml-refabricated:overworld_matter",
+    "N": "minecraft:netherrack"
   },
   "result": {
-    "item": "dml-refabricated:hellish_matter"
+    "id": "dml-refabricated:hellish_matter"
   }
 }

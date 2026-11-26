@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "dml-refabricated:overworld_matter" },
-    { "item": "minecraft:porkchop" }
+    "dml-refabricated:overworld_matter",
+    "minecraft:porkchop"
   ],
   "result": {
-    "item": "minecraft:rotten_flesh",
+    "id": "minecraft:rotten_flesh",
     "count": 16
   }
 }

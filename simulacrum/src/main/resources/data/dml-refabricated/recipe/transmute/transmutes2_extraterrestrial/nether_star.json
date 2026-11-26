@@ -6,12 +6,11 @@
     " S "
   ],
   "key": {
-    "L": { "item": "dml-refabricated:extraterrestrial_matter" },
-    "S": { "item": "minecraft:soul_sand" },
-    "W": { "item": "minecraft:wither_skeleton_skull" }
+    "L": "dml-refabricated:extraterrestrial_matter",
+    "S": "minecraft:soul_sand",
+    "W": "minecraft:wither_skeleton_skull"
   },
   "result": {
-    "item": "minecraft:nether_star",
-    "count": 1
+    "id": "minecraft:nether_star"
   }
 }

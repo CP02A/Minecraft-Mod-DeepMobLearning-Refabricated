@@ -6,14 +6,10 @@
     " H "
   ],
   "key": {
-    "H": {
-      "item": "dml-refabricated:hellish_matter"
-    },
-    "E": {
-      "item": "minecraft:end_stone"
-    }
+    "H": "dml-refabricated:hellish_matter",
+    "E": "minecraft:end_stone"
   },
   "result": {
-    "item": "dml-refabricated:extraterrestrial_matter"
+    "id": "dml-refabricated:extraterrestrial_matter"
   }
 }

@@ -1,28 +1,20 @@
 package dev.nathanpb.dml.simulacrum.item
 
-import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.itemgroup.ITEM_GROUP_KEY
 import dev.nathanpb.dml.simulacrum.SIMULATION_CHAMBER
 import dev.nathanpb.dml.simulacrum.simulacrumConfig
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
+import dev.nathanpb.dml.utils.registerItem
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents
 
-val OVERWORLD_MATTER = ItemMatter(FabricItemSettings(), simulacrumConfig.matterXP.overworldMatterXP)
-val HELLISH_MATTER = ItemMatter(FabricItemSettings(), simulacrumConfig.matterXP.hellishMatterXP)
-val EXTRATERRESTRIAL_MATTER = ItemMatter(FabricItemSettings(), simulacrumConfig.matterXP.extraterrestrialMatterXP)
+// Created and registered together (item properties need the id) when registerItems() loads this file's class
+val EXTRATERRESTRIAL_MATTER = registerItem("extraterrestrial_matter") { ItemMatter(it, simulacrumConfig.matterXP.extraterrestrialMatterXP) }
+val HELLISH_MATTER = registerItem("hellish_matter") { ItemMatter(it, simulacrumConfig.matterXP.hellishMatterXP) }
+val OVERWORLD_MATTER = registerItem("overworld_matter") { ItemMatter(it, simulacrumConfig.matterXP.overworldMatterXP) }
 
 fun registerItems() {
-    linkedMapOf(
-        EXTRATERRESTRIAL_MATTER to "extraterrestrial_matter",
-        HELLISH_MATTER to "hellish_matter",
-        OVERWORLD_MATTER to "overworld_matter"
-    ).forEach { (item, id) ->
-        Registry.register(Registries.ITEM, identifier(id), item)
-        ItemGroupEvents.modifyEntriesEvent(ITEM_GROUP_KEY).register {
-            it.addAfter(ItemStack(SIMULATION_CHAMBER), item)
+    listOf(EXTRATERRESTRIAL_MATTER, HELLISH_MATTER, OVERWORLD_MATTER).forEach { item ->
+        CreativeModeTabEvents.modifyOutputEvent(ITEM_GROUP_KEY).register {
+            it.insertAfter(SIMULATION_CHAMBER, item)
         }
     }
 }

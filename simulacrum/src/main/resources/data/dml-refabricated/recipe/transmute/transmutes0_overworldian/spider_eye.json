@@ -1,13 +1,13 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "minecraft:rotten_flesh" },
-    { "item": "minecraft:apple" },
-    { "item": "minecraft:red_mushroom" },
-    { "item": "dml-refabricated:overworld_matter" }
+    "minecraft:rotten_flesh",
+    "minecraft:apple",
+    "minecraft:red_mushroom",
+    "dml-refabricated:overworld_matter"
   ],
   "result": {
-    "item": "minecraft:spider_eye",
+    "id": "minecraft:spider_eye",
     "count": 2
   }
 }

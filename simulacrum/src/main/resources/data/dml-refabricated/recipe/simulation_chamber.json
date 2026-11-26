@@ -6,13 +6,13 @@
     "DCD"
   ],
   "key": {
-    "M": { "item": "dml-refabricated:machine_casing" },
-    "P": { "item": "minecraft:ender_pearl" },
-    "G": { "item": "minecraft:glass_pane" },
-    "C": { "item": "minecraft:comparator" },
-    "D": { "item": "minecraft:cyan_dye" }
+    "M": "dml-refabricated:machine_casing",
+    "P": "minecraft:ender_pearl",
+    "G": "minecraft:glass_pane",
+    "C": "minecraft:comparator",
+    "D": "minecraft:cyan_dye"
   },
   "result": {
-    "item": "dml-refabricated:simulation_chamber"
+    "id": "dml-refabricated:simulation_chamber"
   }
 }

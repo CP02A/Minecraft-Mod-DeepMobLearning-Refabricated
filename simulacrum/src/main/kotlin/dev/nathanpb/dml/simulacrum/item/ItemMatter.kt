@@ -1,52 +1,56 @@
 package dev.nathanpb.dml.simulacrum.item
 
 import dev.nathanpb.dml.utils.RenderUtils
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.Text
-import net.minecraft.util.Hand
-import net.minecraft.util.TypedActionResult
-import net.minecraft.world.World
+import net.minecraft.network.chat.Component
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.item.component.TooltipDisplay
+import net.minecraft.world.level.Level
+import java.util.function.Consumer
 import kotlin.random.Random.Default.nextFloat
 
-class ItemMatter(_settings: Settings?, _experience: Int) : Item(_settings) {
+class ItemMatter(properties: Properties, private val experience: Int) : Item(properties) {
 
-
-    private val experience: Int = _experience
-
-    override fun use(world: World, user: PlayerEntity, hand: Hand?): TypedActionResult<ItemStack>? {
-        val stack = user.getStackInHand(hand)
-        if (!world.isClient) {
+    override fun use(world: Level, user: Player, hand: InteractionHand): InteractionResult {
+        val stack = user.getItemInHand(hand)
+        if (!world.isClientSide) {
             var count = 1
-            if(user.isSneaking) {
+            if(user.isCrouching) {
                 count = stack.count
-                stack.decrement(count)
+                stack.shrink(count)
             } else {
-                stack.decrement(1)
-                user.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.NEUTRAL, 0.1f, nextFloat())
+                stack.shrink(1)
+                world.playSound(null, user.x, user.y, user.z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.NEUTRAL, 0.1f, nextFloat())
             }
-            user.addExperience(count * experience)
+            user.giveExperiencePoints(count * experience)
         }
-        return TypedActionResult.consume(stack)
+        return InteractionResult.CONSUME
     }
 
-    override fun appendTooltip(stack: ItemStack?, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
-        if(world == null) return
-        tooltip.add(
-            Text.translatable("tooltip.dml-refabricated.matter.1").setStyle(RenderUtils.STYLE).append(
-            Text.translatable("tooltip.dml-refabricated.matter.2").setStyle(RenderUtils.ALT_STYLE))
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        display: TooltipDisplay,
+        tooltip: Consumer<Component>,
+        flag: TooltipFlag
+    ) {
+        tooltip.accept(
+            Component.translatable("tooltip.dml-refabricated.matter.1").setStyle(RenderUtils.STYLE).append(
+            Component.translatable("tooltip.dml-refabricated.matter.2").setStyle(RenderUtils.ALT_STYLE))
         )
-        tooltip.add(
-            Text.translatable("tooltip.dml-refabricated.matter.3").setStyle(RenderUtils.STYLE).append(
-            Text.translatable("tooltip.dml-refabricated.matter.4").setStyle(RenderUtils.ALT_STYLE))
+        tooltip.accept(
+            Component.translatable("tooltip.dml-refabricated.matter.3").setStyle(RenderUtils.STYLE).append(
+            Component.translatable("tooltip.dml-refabricated.matter.4").setStyle(RenderUtils.ALT_STYLE))
         )
-        tooltip.add(
-            Text.translatable("tooltip.dml-refabricated.matter.5").setStyle(RenderUtils.STYLE).append(
-            Text.literal(experience.toString()).setStyle(RenderUtils.ALT_STYLE))
+        tooltip.accept(
+            Component.translatable("tooltip.dml-refabricated.matter.5").setStyle(RenderUtils.STYLE).append(
+            Component.literal(experience.toString()).setStyle(RenderUtils.ALT_STYLE))
         )
     }
 }

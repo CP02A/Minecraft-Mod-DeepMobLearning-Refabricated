@@ -1,6 +1,6 @@
 package dev.nathanpb.dml.simulacrum.util
 
-import net.minecraft.client.resource.language.I18n
+import net.minecraft.client.resources.language.I18n
 
 class Animation {
 
@@ -18,7 +18,7 @@ class Animation {
 
     fun animate(key: String, totalTickTime: Int, currentWorldTick: Long, loop: Boolean, intArg: Int): String {
         if (lastAlterTick != currentWorldTick) {
-            alterString(I18n.translate(key, intArg), totalTickTime, loop)
+            alterString(I18n.get(key, intArg), totalTickTime, loop)
             lastAlterTick = currentWorldTick
         }
         return currentString

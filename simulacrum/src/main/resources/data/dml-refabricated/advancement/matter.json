@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:overworld_matter"
+      "id": "dml-refabricated:overworld_matter"
     },
     "title": {
       "translate": "advancements.dml-refabricated.matter"
@@ -17,13 +17,13 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:overworld_matter"]
+            "items": "dml-refabricated:overworld_matter"
           },
           {
-            "items": ["dml-refabricated:hellish_matter"]
+            "items": "dml-refabricated:hellish_matter"
           },
           {
-            "items": ["dml-refabricated:extraterrestrial_matter"]
+            "items": "dml-refabricated:extraterrestrial_matter"
           }
         ]
       }

@@ -1,11 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "dml-refabricated:overworld_matter" },
-    { "item": "minecraft:coal" }
+    "dml-refabricated:overworld_matter",
+    "minecraft:coal"
   ],
   "result": {
-    "item": "minecraft:gunpowder",
+    "id": "minecraft:gunpowder",
     "count": 16
   }
 }
