@@ -33,6 +33,7 @@ import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.item.ITEM_DATA_MODEL_ZOMBIE
 import dev.nathanpb.dml.item.ITEM_DEEP_LEARNER
 import dev.nathanpb.dml.item.ITEM_PRISTINE_MATTER_ZOMBIE
+import dev.nathanpb.dml.modular_armor.BlockEntityMatterCondenser
 import dev.nathanpb.dml.modular_armor.ItemModularGlitchArmor
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.screen.ModularArmorScreenHandlerFactory
@@ -123,6 +124,21 @@ class DmlClientGameTest : FabricClientGameTest {
                 check(fabricator.inventory.getItem(0).count < 2) { "the loot fabricator used no pristine matter" }
                 val synthesizer = level.getBlockEntity(synthesizerPos) as BlockEntityDataSynthesizer
                 check(synthesizer.energyStorage.amount > 0) { "the data synthesizer made no energy" }
+            }
+
+            // The matter condenser turns pristine matter into pristine energy and charges glitch armor with it
+            val condenserPos = base.offset(8 - machines.size, 0, 4)
+            server.runOnServer<RuntimeException> {
+                val condenser = it.overworld().getBlockEntity(condenserPos) as BlockEntityMatterCondenser
+                condenser.inventory.armorStack = ItemStack(ItemModularGlitchArmor.GLITCH_HELMET)
+                condenser.inventory.pristineInputStack = ItemStack(ITEM_PRISTINE_MATTER_ZOMBIE, 4)
+            }
+            context.waitTicks(40)
+            server.runOnServer<RuntimeException> {
+                val condenser = it.overworld().getBlockEntity(condenserPos) as BlockEntityMatterCondenser
+                val armorEnergy = ModularArmorData(condenser.inventory.armorStack).pristineEnergy
+                check(condenser.inventory.pristineInputStack.count < 4) { "the matter condenser used no pristine matter (energy ${condenser.energyStorage.amount})" }
+                check(armorEnergy > 0) { "the matter condenser didn't charge the armor (condenser energy ${condenser.energyStorage.amount})" }
             }
 
             server.runCommand("tp @a ${base.x} ${base.y + 1} ${base.z - 2} 0 20")

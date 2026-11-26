@@ -19,6 +19,7 @@
 
 package dev.nathanpb.dml.screen.handler.widget
 
+import dev.nathanpb.dml.item.ItemPristineMatter
 import dev.nathanpb.dml.utils.RenderUtils.Companion.ENERGY_BAR
 import dev.nathanpb.dml.utils.RenderUtils.Companion.ENERGY_BAR_ARROW
 import dev.nathanpb.dml.utils.RenderUtils.Companion.ENERGY_BAR_BACKGROUND
@@ -84,6 +85,11 @@ open class WEnergyComponent(
 
         if(outputIndex != null) {
             val outputSlot = WItemSlot.of(inventory, outputIndex)
+            if (isPristineEnergy) {
+                // The output slot charges items: pristine matter goes to the input slot (shift clicks fill the first
+                // slot that accepts the stack, which used to be this one)
+                outputSlot.setInputFilter { it.item !is ItemPristineMatter }
+            }
             energyBar = WEnergyBar(false)
 
             add(outputSlot, 0, 0)
