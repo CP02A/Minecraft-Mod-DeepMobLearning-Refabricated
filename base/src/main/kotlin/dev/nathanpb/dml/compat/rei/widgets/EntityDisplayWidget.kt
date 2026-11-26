@@ -41,7 +41,12 @@ class EntityDisplayWidget(
 
     private var tickCount = 0
 
-    override fun extractRenderState(ctx: GuiGraphicsExtractor, mX: Int, mY: Int, delta: Float) {
+    override fun extractRenderState(ctx: GuiGraphicsExtractor, mX: Int, mY: Int, delta: Float) = extract(ctx, 0, 0)
+
+    /** Draws with (x, y) moved by ([offsetX], [offsetY]): GUI entities are placed in screen coordinates. */
+    fun extract(ctx: GuiGraphicsExtractor, offsetX: Int, offsetY: Int) {
+        val x = x + offsetX
+        val y = y + offsetY
         tickCount++
         val entity = entities[(tickCount / 60) % entities.size]
         entity.isInReiScreen = true

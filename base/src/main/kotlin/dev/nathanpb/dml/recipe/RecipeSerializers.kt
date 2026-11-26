@@ -19,6 +19,7 @@
 
 package dev.nathanpb.dml.recipe
 
+import net.fabricmc.fabric.api.recipe.v1.sync.RecipeSynchronization
 import dev.nathanpb.dml.identifier
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
@@ -37,4 +38,10 @@ fun registerRecipeSerializers() {
     register("trial_keystone", TrialKeystoneRecipe.SERIALIZER)
     register("crushing", CrushingRecipe.SERIALIZER)
     register("loot_fabricator", LootFabricatorRecipe.SERIALIZER)
+
+    // Recipes only exist on the server since 1.21.2: Fabric sends these to the clients that have the mod, for the
+    // recipe viewers (JEI reads them on the client; REI makes its displays on the server, see ReiCommonPlugin)
+    RecipeSynchronization.synchronizeRecipeSerializer(TrialKeystoneRecipe.SERIALIZER)
+    RecipeSynchronization.synchronizeRecipeSerializer(CrushingRecipe.SERIALIZER)
+    RecipeSynchronization.synchronizeRecipeSerializer(LootFabricatorRecipe.SERIALIZER)
 }

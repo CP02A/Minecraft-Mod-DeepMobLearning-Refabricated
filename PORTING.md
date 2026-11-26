@@ -30,9 +30,17 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
   - killing zombies with a deep learner in the hotbar adds data to its data model,
   - attuning a trial key in a crafting table, starting a trial on the keystone, the waves, killing the System Glitch,
     "Trial Succeeded" and the rewards,
-  - wearing glitch armor (armor value on the client) and its GUI, the System Glitch entity on the client.
-- Not tested in game yet: every modular effect one by one, world generation of disruptions (disabled in 1.20.1 too),
-  REI categories (the Furcraft pack uses JEI, which DML has no plugin for).
+  - wearing glitch armor (armor value on the client) and its GUI, the System Glitch entity on the client,
+  - the matter condenser charging a glitch helmet with pristine matter, a data model put into the helmet with its GUI,
+  - every glitch armor effect, in survival, with a full set of the effect's category and tier against a set of
+    another category: fire protection/immunity, auto extinguish, piglin truce, feather falling, jump boost, fall
+    immunity, plenty, rot resistance, unrotten flesh, zombie/skeleton/shulker friendly, archery, endermen proof
+    vision, teleport and soul vision (their keys), night vision, fly, resistance, undying, underwater haste, depth
+    strider, water breathing, poseidon's bless,
+  - JEI: the trial (45), loot fabricator (9) and crushing recipes and their pages,
+  - a second player (another client) sees the tester's trial, glitch armor and machines.
+- Not tested in game yet: world generation of disruptions (disabled in 1.20.1 too), REI categories in game (REI
+  starts with the mod in `runServer`/`runClient`).
 
 ## How the port was done
 
@@ -51,6 +59,7 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
 | LibGui | 8.1.1, Maven | 18.0.1+26.3-rc-2, **the official GitHub release jar** in `libs/maven` (its Maven, server.bbkr.space, is gone) |
 | Team Reborn Energy | 2.3.0 | 5.0.0 (energy is a data component now) |
 | REI | 12.0.684 | 26.3.824 (compile only) |
+| JEI | none | 31.14.0.72 API (compile only), new integration |
 | PlayerAbilityLib | 1.8.0 | 1.16.0 (Modrinth Maven) |
 | KtDataTagLib | 1.6.7 | **removed**, replaced by `dev.nathanpb.dml.data.tag` (same API, see below) |
 | MixinExtras | 0.1.1, bundled | part of Fabric Loader |
@@ -78,7 +87,10 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
   `preRemoveSideEffects`. `ClientSyncedBlockEntity` keeps the client tag (`#c`) mechanism.
 - **Recipes** are codec based and exist only on the server: recipe lookups go through `recipesOf`/`recipeById`; the
   loot fabricator's input filter accepts all pristine matter on the client. REI displays are made on the server
-  (`ReiCommonPlugin`, display serializers) and the categories on the client (`ReiPlugin`).
+  (`ReiCommonPlugin`, display serializers) and the categories on the client (`ReiPlugin`). The crushing, loot
+  fabricator and trial keystone recipes are also sent to the clients with Fabric's recipe synchronization
+  (`RecipeSynchronization`) for JEI, whose plugin (`compat/jei`, entrypoint `jei_mod_plugin`) reads them on the client
+  (`ClientRecipes`).
 - **Menus** use Fabric's `ExtendedMenuType`/`ExtendedMenuProvider` (block position or hand as opening data). LibGui 18
   draws through `GuiGraphicsExtractor`; `SimpleContainer` has no listeners any more (`ListeningContainer`).
 - **Rendering:** block entity renderers extract a render state and submit it. The data synthesizer grid and the matter
@@ -105,6 +117,10 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
   `minecraft:short_grass`, and the convention biome tags are `c:is_*`.
 - Fixed: killing a mob didn't add data to the data model in the deep learner (the models are decoded copies of the
   learner's stored stacks; the changed inventory is written back now).
+- Fixed: zombie/skeleton/shulker friendly crashed the server with a stack overflow (a port mistake: the check whether a
+  mob attacks players called `canAttack`, which the effect hooks).
+- Fixed (also broken in 1.20.1): rot resistance never applied (its instance was looked up before it was registered),
+  and shift clicking pristine matter into the matter condenser put it in the output slot, where it isn't used.
 - Not changed on purpose: after its first item, the loot fabricator processes the following pristine matter without
   waiting again (its progress isn't reset), as in 1.20.1.
 - CurseForge/Modrinth/Maven publishing was removed from the build (the plugins don't support Gradle 9, and the

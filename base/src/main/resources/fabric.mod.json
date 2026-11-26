@@ -32,6 +32,9 @@
     ],
     "rei_common": [
       "dev.nathanpb.dml.compat.rei.ReiCommonPlugin"
+    ],
+    "jei_mod_plugin": [
+      "dev.nathanpb.dml.compat.jei.DmlJeiPlugin"
     ]
   },
   "mixins": [
