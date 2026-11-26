@@ -33,19 +33,19 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.event.ModularArmorEvents
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import dev.nathanpb.dml.modular_armor.net.C2S_SOUL_VISION_REQUESTED
+import dev.nathanpb.dml.modular_armor.net.SoulVisionRequestedPayload
 import io.netty.buffer.Unpooled
 import net.fabricmc.api.EnvType
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.client.MinecraftClient
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
+import net.minecraft.client.Minecraft
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.entity.player.Player
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
 
 class SoulVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
     identifier("soul_vision"),
@@ -53,27 +53,27 @@ class SoulVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
     modularArmorConfig.glitchArmor.costs::soulVision
 ) {
 
-    override val name = Text.translatable("effect.${MOD_ID}.soul_vision")
-    override val description = Text.translatable("effect.${MOD_ID}.soul_vision.description")
+    override val name = Component.translatable("effect.${MOD_ID}.soul_vision")
+    override val description = Component.translatable("effect.${MOD_ID}.soul_vision.description")
 
     override fun registerEvents() {
         if (FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
             ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick {
-                if (MinecraftClient.getInstance().world != null && SOUL_VISION_KEYBINDING.isPressed) {
-                    SOUL_VISION_KEYBINDING.isPressed = false
-                    ClientPlayNetworking.send(C2S_SOUL_VISION_REQUESTED, PacketByteBuf(Unpooled.buffer()))
+                if (Minecraft.getInstance().level != null && SOUL_VISION_KEYBINDING.isDown) {
+                    SOUL_VISION_KEYBINDING.isDown = false
+                    ClientPlayNetworking.send(SoulVisionRequestedPayload.INSTANCE)
                 }
             })
         }
 
-        ModularArmorEvents.SoulVisionEffectRequestedEvent.register { player: PlayerEntity ->
-            if (!player.world.isClient && !player.hasStatusEffect(SOUL_VISION_EFFECT)) {
+        ModularArmorEvents.SoulVisionEffectRequestedEvent.register { player: Player ->
+            if (!player.level().isClientSide && !player.hasEffect(SOUL_VISION_EFFECT)) {
                 ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                     .any { context ->
                         attemptToApply(context, ModularEffectTriggerPayload.EMPTY) { _, _ ->
-                            player.addStatusEffect(StatusEffectInstance(SOUL_VISION_EFFECT, 16*20, context.tier.ordinal))
-                        }.result == ActionResult.SUCCESS
+                            player.addEffect(MobEffectInstance(SOUL_VISION_EFFECT, 16*20, context.tier.ordinal))
+                        }.result == InteractionResult.SUCCESS
                     }
             }
         }
@@ -84,8 +84,8 @@ class SoulVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
     override fun isScaled() = true
     override fun getEnergyConsumptionType() = EffectInfo.EnergyConsumptionType.USE
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.ADDITION)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_VALUE)
     }
 
 }

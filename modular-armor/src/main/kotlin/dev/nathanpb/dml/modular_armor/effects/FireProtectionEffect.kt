@@ -24,10 +24,10 @@ import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.registry.tag.DamageTypeTags
-import net.minecraft.text.Text
-import net.minecraft.world.World
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.tags.DamageTypeTags
+import net.minecraft.network.chat.Component
+import net.minecraft.world.level.Level
 
 class FireProtectionEffect : ProtectionLikeEffect(
     identifier("fire_protection"),
@@ -35,11 +35,11 @@ class FireProtectionEffect : ProtectionLikeEffect(
     modularArmorConfig.glitchArmor.costs::fireProtection
 ) {
 
-    override val name = Text.translatable("enchantment.minecraft.fire_protection")
-    override val description = Text.translatable("enchantment.minecraft.fire_protection.module_description")
+    override val name = Component.translatable("enchantment.minecraft.fire_protection")
+    override val description = Component.translatable("enchantment.minecraft.fire_protection.module_description")
 
 
-    override fun protectsAgainst(world: World, source: DamageSource) = source.isIn(DamageTypeTags.IS_FIRE)
+    override fun protectsAgainst(world: Level, source: DamageSource) = source.`is`(DamageTypeTags.IS_FIRE)
 
     override fun acceptTier(tier: DataModelTier) = !tier.isMaxTier()
     override fun minimumTier(): DataModelTier = DataModelTier.FAULTY

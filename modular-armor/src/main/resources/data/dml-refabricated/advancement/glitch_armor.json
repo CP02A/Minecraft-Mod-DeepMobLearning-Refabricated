@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:glitch_chestplate"
+      "id": "dml-refabricated:glitch_chestplate"
     },
     "title": {
       "translate": "advancements.dml-refabricated.glitch_armor"
@@ -18,16 +18,16 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:glitch_helmet"]
+            "items": "dml-refabricated:glitch_helmet"
           },
           {
-            "items": ["dml-refabricated:glitch_chestplate"]
+            "items": "dml-refabricated:glitch_chestplate"
           },
           {
-            "items": ["dml-refabricated:glitch_leggings"]
+            "items": "dml-refabricated:glitch_leggings"
           },
           {
-            "items": ["dml-refabricated:glitch_boots"]
+            "items": "dml-refabricated:glitch_boots"
           }
         ]
       }

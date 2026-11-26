@@ -26,9 +26,9 @@ import dev.nathanpb.dml.modular_armor.core.EffectStackOption
 import dev.nathanpb.dml.modular_armor.core.ModularEffect
 import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Identifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.InteractionResult
+import net.minecraft.resources.Identifier
 
 abstract class StatusEffectLikeEffect(
     id: Identifier,
@@ -39,26 +39,26 @@ abstract class StatusEffectLikeEffect(
 
     override fun registerEvents() {
         VanillaEvents.PlayerEntityTickEvent.register { player ->
-            if (player.world.time % 80 == 0L) {
+            if (player.level().gameTime % 80 == 0L) {
                 ModularEffectContext.from(player)
                     .run(stackingOption.apply)
                     .firstOrNull {
                         attemptToApply(it, ModularEffectTriggerPayload.EMPTY) { context, _ ->
-                            player.addStatusEffect(createEffectInstance(context))
-                        }.result == ActionResult.SUCCESS
+                            player.addEffect(createEffectInstance(context))
+                        }.result == InteractionResult.SUCCESS
                     }
             }
         }
     }
 
-    abstract fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance
+    abstract fun createEffectInstance(context: ModularEffectContext): MobEffectInstance
 
     override fun canApply(context: ModularEffectContext, payload: ModularEffectTriggerPayload): Boolean {
         val doesNotHasEffect by lazy {
             val statusEffectInstance = createEffectInstance(context)
-            context.player.statusEffects.none {
+            context.player.activeEffects.none {
                 it.duration < 15 * 20 // FIXME apply per effect trigger, not endlessly
-                    && it.effectType == statusEffectInstance.effectType
+                    && it.effect == statusEffectInstance.effect
                     && it.amplifier < statusEffectInstance.amplifier
             }
         }

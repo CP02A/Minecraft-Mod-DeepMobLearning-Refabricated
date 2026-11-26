@@ -31,9 +31,9 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import dev.nathanpb.dml.utils.firstOrNullMapping
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.util.ActionResult
-import net.minecraft.world.World
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.level.Level
 import kotlin.random.Random
 
 class PlentyEffect : ModularEffect<ModularEffectTriggerPayload>(
@@ -43,7 +43,7 @@ class PlentyEffect : ModularEffect<ModularEffectTriggerPayload>(
 ) {
     override fun registerEvents() {
         VanillaEvents.PlayerTakeHungerEvent.register { player, amount ->
-            if (!player.world.isClient) {
+            if (!player.level().isClientSide) {
                 return@register ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                     .firstOrNullMapping({ context ->
@@ -52,7 +52,7 @@ class PlentyEffect : ModularEffect<ModularEffectTriggerPayload>(
                                 0
                             } else amount
                         }
-                    }, { it.result == ActionResult.SUCCESS })?.value ?: amount
+                    }, { it.result == InteractionResult.SUCCESS })?.value ?: amount
             }
             return@register amount
         }
@@ -63,16 +63,16 @@ class PlentyEffect : ModularEffect<ModularEffectTriggerPayload>(
     override fun isScaled() = true
 
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), (armor.tier().ordinal.inc() / 100.0) * 15.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), (armor.tier().ordinal.inc() / 100.0) * 15.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun canApply(context: ModularEffectContext, payload: ModularEffectTriggerPayload): Boolean {
         val hasSunlight by lazy {
-            context.player.world.isDay && context.player.world.isSkyVisible(context.player.blockPos.add(0, 1, 0))
+            context.player.level().isBrightOutside && context.player.level().canSeeSky(context.player.blockPosition().above())
         }
 
-        return context.player.world.registryKey == World.OVERWORLD
+        return context.player.level().dimension() == Level.OVERWORLD
                 && super.canApply(context, payload)
                 && (context.tier.isMaxTier() || hasSunlight)
     }

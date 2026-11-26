@@ -29,13 +29,13 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.core.WrappedEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.registry.tag.DamageTypeTags
-import net.minecraft.sound.SoundEvents
-import net.minecraft.util.ActionResult
-import net.minecraft.world.World
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.player.Player
+import net.minecraft.tags.DamageTypeTags
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.level.Level
 
 class AutoExtinguishEffect : ProtectionLikeEffect(
     identifier("auto_extinguish"),
@@ -44,21 +44,21 @@ class AutoExtinguishEffect : ProtectionLikeEffect(
 ) {
     override fun registerEvents() {
         VanillaEvents.LivingEntityDamageEvent.register { eventContext ->
-            if (eventContext.entity is PlayerEntity) {
-                ModularEffectContext.from(eventContext.entity as PlayerEntity)
+            if (eventContext.entity is Player) {
+                ModularEffectContext.from(eventContext.entity as Player)
                     .shuffled()
                     .firstOrNull { effectContext ->
                         attemptToApply(effectContext, ModularEffectTriggerPayload.wrap(eventContext)) { _, _ ->
-                            eventContext.entity.playSound(SoundEvents.ENTITY_GENERIC_EXTINGUISH_FIRE, 1F, 1F)
-                            eventContext.entity.fireTicks = 0
-                        }.result == ActionResult.SUCCESS
+                            eventContext.entity.playSound(SoundEvents.GENERIC_EXTINGUISH_FIRE, 1F, 1F)
+                            eventContext.entity.remainingFireTicks = 0
+                        }.result == InteractionResult.SUCCESS
                     }
             }
             null
         }
     }
 
-    override fun protectsAgainst(world: World, source: DamageSource) = source.isIn(DamageTypeTags.IS_FIRE)
+    override fun protectsAgainst(world: Level, source: DamageSource) = source.`is`(DamageTypeTags.IS_FIRE)
 
     override fun acceptTier(tier: DataModelTier): Boolean = tier.ordinal >= 2
     override fun minimumTier(): DataModelTier = DataModelTier.ADVANCED
@@ -68,8 +68,8 @@ class AutoExtinguishEffect : ProtectionLikeEffect(
         return super.canApply(context, payload) && !context.player.isInLava
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
 }

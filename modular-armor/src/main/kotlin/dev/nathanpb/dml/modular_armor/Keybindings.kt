@@ -21,29 +21,29 @@
 package dev.nathanpb.dml.modular_armor
 
 import dev.nathanpb.dml.identifier
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
-import net.minecraft.client.option.KeyBinding
-import net.minecraft.client.util.InputUtil
-import net.minecraft.util.Identifier
-import org.lwjgl.glfw.GLFW
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
+import net.minecraft.client.KeyMapping
+import com.mojang.blaze3d.platform.InputConstants
+import net.minecraft.resources.Identifier
 
-val CATEGORY_MODULAR_ARMOR = identifier("modular_armor")
+/** Translated as key.category.dml-refabricated.modular_armor (since 1.21.9 categories are registered ids). */
+val CATEGORY_MODULAR_ARMOR: KeyMapping.Category = KeyMapping.Category.register(identifier("modular_armor"))
 
-val TELEPORT_KEYBINDING = register(identifier("teleport"), GLFW.GLFW_KEY_V, CATEGORY_MODULAR_ARMOR)
-val SOUL_VISION_KEYBINDING = register(identifier("soul_vision"), GLFW.GLFW_KEY_B, CATEGORY_MODULAR_ARMOR)
+val TELEPORT_KEYBINDING = register(identifier("teleport"), InputConstants.KEY_V, CATEGORY_MODULAR_ARMOR)
+val SOUL_VISION_KEYBINDING = register(identifier("soul_vision"), InputConstants.KEY_B, CATEGORY_MODULAR_ARMOR)
 
 private fun register(
     id: Identifier,
     default: Int,
-    category: Identifier,
-    type: InputUtil.Type = InputUtil.Type.KEYSYM
-): KeyBinding {
-    return KeyBindingHelper.registerKeyBinding(
-        KeyBinding(
+    category: KeyMapping.Category,
+    type: InputConstants.Type = InputConstants.Type.KEYBOARD
+): KeyMapping {
+    return KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
             "key.${id.namespace}.${id.path}",
             type,
             default,
-            "category.${category.namespace}.${category.path}"
+            category
         )
     )
 }

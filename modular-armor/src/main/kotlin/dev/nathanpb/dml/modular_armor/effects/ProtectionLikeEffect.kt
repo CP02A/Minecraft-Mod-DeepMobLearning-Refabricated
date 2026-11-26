@@ -27,12 +27,12 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.core.WrappedEffectTriggerPayload
 import dev.nathanpb.dml.utils.takeOrNull
-import net.minecraft.entity.DamageUtil
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Identifier
-import net.minecraft.world.World
+import net.minecraft.world.damagesource.CombatRules
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.InteractionResult
+import net.minecraft.resources.Identifier
+import net.minecraft.world.level.Level
 
 abstract class ProtectionLikeEffect(
     id: Identifier,
@@ -42,14 +42,14 @@ abstract class ProtectionLikeEffect(
 
     override fun registerEvents() {
         VanillaEvents.LivingEntityDamageEvent.register { eventContext ->
-            takeOrNull(eventContext.entity is PlayerEntity && !eventContext.entity.world.isClient) {
-                val armorValues = ModularEffectContext.from(eventContext.entity as PlayerEntity).fold(0.0) { acc, effectContext ->
+            takeOrNull(eventContext.entity is Player && !eventContext.entity.level().isClientSide) {
+                val armorValues = ModularEffectContext.from(eventContext.entity as Player).fold(0.0) { acc, effectContext ->
                     val result = attemptToApply(effectContext, ModularEffectTriggerPayload.wrap(eventContext)) { _, _ ->
                         sumLevelsOf(effectContext.armor.stack)
                     }
 
-                    if (result.result == ActionResult.SUCCESS) {
-                        acc + result.value
+                    if (result.result == InteractionResult.SUCCESS) {
+                        acc + (result.value ?: 0.0)
                     } else acc
                 }
                 eventContext.copy(damage = inflictDamage(eventContext, armorValues))
@@ -58,13 +58,13 @@ abstract class ProtectionLikeEffect(
     }
 
     open fun inflictDamage(event: VanillaEvents.LivingEntityDamageContext, armorValues: Double): Float {
-        return DamageUtil.getInflictedDamage(event.damage, armorValues.toFloat())
+        return CombatRules.getDamageAfterMagicAbsorb(event.damage, armorValues.toFloat())
     }
 
-    abstract fun protectsAgainst(world: World, source: DamageSource): Boolean
+    abstract fun protectsAgainst(world: Level, source: DamageSource): Boolean
 
     override fun canApply(context: ModularEffectContext, payload: WrappedEffectTriggerPayload<VanillaEvents.LivingEntityDamageContext>): Boolean {
-        return super.canApply(context, payload) && protectsAgainst(context.player.world, payload.value.source)
+        return super.canApply(context, payload) && protectsAgainst(context.player.level(), payload.value.source)
     }
 
     override fun getEnergyConsumptionType(): EffectInfo.EnergyConsumptionType = EffectInfo.EnergyConsumptionType.USE

@@ -29,7 +29,7 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.event.ModularArmorEvents
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import dev.nathanpb.dml.modular_armor.net.C2S_TELEPORT_EFFECT_REQUESTED
+import dev.nathanpb.dml.modular_armor.net.TeleportEffectRequestedPayload
 import dev.nathanpb.dml.modular_armor.payload.TeleportEffectPayload
 import dev.nathanpb.dml.utils.toVec3d
 import dev.nathanpb.dml.utils.writeVec3d
@@ -39,12 +39,12 @@ import net.fabricmc.api.Environment
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.util.ActionResult
-import net.minecraft.util.hit.HitResult
-import net.minecraft.util.math.Direction
-import net.minecraft.world.RaycastContext
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.phys.HitResult
+import net.minecraft.core.Direction
+import net.minecraft.world.level.ClipContext
 
 class TeleportEffect : ModularEffect<TeleportEffectPayload>(
     identifier("teleport"),
@@ -58,18 +58,16 @@ class TeleportEffect : ModularEffect<TeleportEffectPayload>(
     override fun registerEvents() {
         if (FabricLoader.getInstance().environmentType == EnvType.CLIENT) {
             ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client ->
-                if (TELEPORT_KEYBINDING.isPressed) {
+                if (TELEPORT_KEYBINDING.isDown) {
                     client.player?.let { player ->
-                        val world = player.world
-                        if (world.time - clientLastUse >= 20) {
-                            clientLastUse = world.time
+                        val world = player.level()
+                        if (world.gameTime - clientLastUse >= 20) {
+                            clientLastUse = world.gameTime
 
-                            PacketByteBuf(Unpooled.buffer()).apply {
-                                writeVec3d(player.pos.add(0.0, player.getEyeHeight(player.pose).toDouble(), 0.0))
-                                writeVec3d(player.rotationVecClient)
-                            }.let { buf ->
-                                ClientPlayNetworking.send(C2S_TELEPORT_EFFECT_REQUESTED, buf)
-                            }
+                            ClientPlayNetworking.send(TeleportEffectRequestedPayload(
+                                player.position().add(0.0, player.getEyeHeight(player.pose).toDouble(), 0.0),
+                                player.forward
+                            ))
                         }
                     }
                 }
@@ -77,34 +75,34 @@ class TeleportEffect : ModularEffect<TeleportEffectPayload>(
         }
 
         ModularArmorEvents.TeleportEffectRequestedEvent.register { player, pos, looking ->
-            if (!player.world.isClient) {
+            if (!player.level().isClientSide) {
                 return@register ModularEffectContext.from(player)
                     .any {
                         attemptToApply(it, TeleportEffectPayload(pos, looking)) { _, _ ->
-                            val lookingAt = looking.multiply(10.0).add(pos)
-                            val hitResult = player.world.raycast(RaycastContext(
+                            val lookingAt = looking.scale(10.0).add(pos)
+                            val hitResult = player.level().clip(ClipContext(
                                 pos,
                                 lookingAt,
-                                RaycastContext.ShapeType.OUTLINE,
-                                RaycastContext.FluidHandling.NONE,
+                                ClipContext.Block.OUTLINE,
+                                ClipContext.Fluid.NONE,
                                 player
                             ))
 
                             val positionToTeleport = if (hitResult.type == HitResult.Type.MISS) {
                                 lookingAt.add(0.0, -1.0 ,0.0)
                             } else {
-                                hitResult.blockPos.offset(hitResult.side).toVec3d().run {
-                                    if (hitResult.side != Direction.UP) {
+                                hitResult.blockPos.relative(hitResult.direction).toVec3d().run {
+                                    if (hitResult.direction != Direction.UP) {
                                         add(0.0, -1.0, 0.0)
                                     } else this
                                 }.add(0.5, 0.0, 0.5)
                             }
 
                             positionToTeleport.apply {
-                                player.requestTeleport(x, y, z)
+                                player.teleportTo(x, y, z)
                             }
 
-                        }.result == ActionResult.SUCCESS
+                        }.result == InteractionResult.SUCCESS
                     }
             }
             return@register false
@@ -115,8 +113,8 @@ class TeleportEffect : ModularEffect<TeleportEffectPayload>(
     override fun minimumTier(): DataModelTier = DataModelTier.SUPERIOR
     override fun getEnergyConsumptionType() = EffectInfo.EnergyConsumptionType.USE
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.ADDITION)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_VALUE)
     }
 
 }

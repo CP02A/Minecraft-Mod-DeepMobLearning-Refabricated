@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "dml-refabricated:glitch"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "dml-refabricated:glitch"
+      }
+    ]
+  }
+}

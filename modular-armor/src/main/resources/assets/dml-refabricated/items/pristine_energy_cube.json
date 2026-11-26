@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "dml-refabricated:item/pristine_energy_cube",
+    "tints": [
+      {
+        "type": "dml-refabricated:battery_charge"
+      }
+    ]
+  }
+}

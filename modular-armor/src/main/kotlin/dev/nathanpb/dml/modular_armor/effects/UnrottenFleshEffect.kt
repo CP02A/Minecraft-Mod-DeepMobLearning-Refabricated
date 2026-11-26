@@ -29,11 +29,11 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Items
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Items
 import kotlin.math.ceil
 import kotlin.random.Random
 
@@ -45,24 +45,24 @@ class UnrottenFleshEffect : ModularEffect<ModularEffectTriggerPayload> (
 
     companion object {
         val EFFECTS = listOf(
-            StatusEffects.HASTE,
-            StatusEffects.ABSORPTION,
-            StatusEffects.FIRE_RESISTANCE,
-            StatusEffects.REGENERATION,
-            StatusEffects.RESISTANCE,
-            StatusEffects.STRENGTH,
-            StatusEffects.SPEED
+            MobEffects.HASTE,
+            MobEffects.ABSORPTION,
+            MobEffects.FIRE_RESISTANCE,
+            MobEffects.REGENERATION,
+            MobEffects.RESISTANCE,
+            MobEffects.STRENGTH,
+            MobEffects.SPEED
         )
     }
 
     override fun registerEvents() {
         VanillaEvents.LivingEntityEatEvent.register { player, stack ->
-            if (player is PlayerEntity && !player.world.isClient && stack.item == Items.ROTTEN_FLESH) {
+            if (player is Player && !player.level().isClientSide && stack.item == Items.ROTTEN_FLESH) {
                 ModularEffectContext.from(player)
                     .forEach { context ->
                         attemptToApply(context, ModularEffectTriggerPayload.EMPTY) { _, _ ->
                             if (Random.nextFloat() <= sumLevelsOf(context.armor.stack)) {
-                                context.player.addStatusEffect(StatusEffectInstance(
+                                context.player.addEffect(MobEffectInstance(
                                     EFFECTS.random(),
                                     context.tier.ordinal.inc() * 160,
                                     ceil(context.tier.ordinal.inc() / 2.5).toInt() -1
@@ -74,8 +74,8 @@ class UnrottenFleshEffect : ModularEffect<ModularEffectTriggerPayload> (
         }
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), (armor.tier().ordinal.inc() / 100.0) * 20, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), (armor.tier().ordinal.inc() / 100.0) * 20, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.ordinal >= 1

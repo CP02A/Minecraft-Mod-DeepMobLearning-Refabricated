@@ -26,14 +26,35 @@ import dev.nathanpb.dml.data.dataModel
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.item.ItemDataModel
 import dev.nathanpb.dml.utils.takeOrNull
-import dev.nathanpb.ktdatatag.data.MutableCompoundData
-import dev.nathanpb.ktdatatag.serializer.Serializers
-import net.minecraft.item.ItemStack
+import dev.nathanpb.dml.data.tag.MutableCompoundData
+import dev.nathanpb.dml.data.tag.Serializers
+import dev.nathanpb.dml.data.tag.setCustomDataTag
+import dev.nathanpb.dml.data.tag.stackData
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.item.ItemStack
 import team.reborn.energy.api.base.SimpleEnergyItem
 
-class ModularArmorData(val stack: ItemStack) : MutableCompoundData(stack.orCreateNbt) {
+class ModularArmorData private constructor(val stack: ItemStack, data: Pair<CompoundTag, (CompoundTag) -> Unit>) :
+    MutableCompoundData(data.first, data.second) {
 
-    var pristineEnergy by persistentDefaulted(0, Serializers.LONG, SimpleEnergyItem.ENERGY_KEY)
+    constructor(stack: ItemStack) : this(stack, stackData(stack))
+
+
+    /**
+     * The armor's pristine energy: the energy component of Team Reborn Energy (before 1.20.5 its "energy" NBT key).
+     * Armor from older worlds still has the old key in its custom data: it's moved to the component on first read.
+     */
+    var pristineEnergy: Long
+        get() {
+            if (tag.contains(LEGACY_ENERGY_KEY)) {
+                val legacy = tag.getLongOr(LEGACY_ENERGY_KEY, 0L)
+                tag.remove(LEGACY_ENERGY_KEY)
+                stack.setCustomDataTag(tag)
+                SimpleEnergyItem.setStoredEnergyUnchecked(stack, legacy)
+            }
+            return SimpleEnergyItem.getStoredEnergyUnchecked(stack)
+        }
+        set(value) = SimpleEnergyItem.setStoredEnergyUnchecked(stack, value)
 
     var disabledEffects by persistentDefaulted(emptyList(), Serializers.IDENTIFIER_LIST)
 
@@ -56,4 +77,8 @@ class ModularArmorData(val stack: ItemStack) : MutableCompoundData(stack.orCreat
     /** DEPRECATED - this is being kept for a while to allow worlds to be upgraded smoothly.*/
     var dataAmount by persistentDefaulted(-1, Serializers.INT, "${MOD_ID}.dataAmount")
 
+
+    companion object {
+        private const val LEGACY_ENERGY_KEY = "energy"
+    }
 }

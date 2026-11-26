@@ -26,9 +26,9 @@ import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.core.EffectStackOption
 import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.text.Text
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.network.chat.Component
 
 class JumpBoostEffect : StatusEffectLikeEffect(
     identifier("jump_boost"),
@@ -37,11 +37,11 @@ class JumpBoostEffect : StatusEffectLikeEffect(
     EffectStackOption.PRIORITIZE_GREATER
 ) {
 
-    override val name = Text.translatable("effect.minecraft.jump_boost")
-    override val description = Text.translatable("effect.minecraft.jump_boost.module_description")
+    override val name = Component.translatable("effect.minecraft.jump_boost")
+    override val description = Component.translatable("effect.minecraft.jump_boost.module_description")
 
-    override fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance {
-        return StatusEffectInstance(StatusEffects.JUMP_BOOST, 20 * 17, context.tier.ordinal / 2, false, false)
+    override fun createEffectInstance(context: ModularEffectContext): MobEffectInstance {
+        return MobEffectInstance(MobEffects.JUMP_BOOST, 20 * 17, context.tier.ordinal / 2, false, false)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.ordinal >= 2

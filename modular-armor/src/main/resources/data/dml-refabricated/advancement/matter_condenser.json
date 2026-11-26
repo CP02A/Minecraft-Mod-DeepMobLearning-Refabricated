@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:matter_condenser"
+      "id": "dml-refabricated:matter_condenser"
     },
     "title": {
       "translate": "advancements.dml-refabricated.matter_condenser"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:matter_condenser"]
+            "items": "dml-refabricated:matter_condenser"
           }
         ]
       }

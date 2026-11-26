@@ -29,7 +29,7 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import io.github.ladysnake.pal.AbilitySource
 import io.github.ladysnake.pal.Pal
 import io.github.ladysnake.pal.PlayerAbility
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 
 abstract class AbilityBasedEffect(
     id: Identifier,
@@ -45,7 +45,7 @@ abstract class AbilityBasedEffect(
 
             // Checking if the player should have the ability
             // This does not consume any data
-            if (!player.world.isClient && player.world.time % 20 == 0L) {
+            if (!player.level().isClientSide && player.level().gameTime % 20 == 0L) {
                 ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                     .any { context ->

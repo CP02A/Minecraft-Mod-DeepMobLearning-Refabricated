@@ -20,13 +20,14 @@
 
 package dev.nathanpb.dml.modular_armor.screen
 
+import dev.nathanpb.dml.utils.ListeningContainer
 import dev.nathanpb.dml.data.dataModel
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.item.ItemDataModel
 import dev.nathanpb.dml.modular_armor.core.ModularEffect
 import dev.nathanpb.dml.modular_armor.core.ModularEffectRegistry
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
-import dev.nathanpb.dml.modular_armor.net.C2S_MODULAR_EFFECT_TOGGLE
+import dev.nathanpb.dml.modular_armor.net.ModularEffectTogglePayload
 import dev.nathanpb.dml.screen.handler.registerScreenHandlerForItemStack
 import dev.nathanpb.dml.utils.RenderUtils
 import dev.nathanpb.dml.utils.takeOrNull
@@ -37,24 +38,26 @@ import io.github.cottonmc.cotton.gui.widget.data.Insets
 import io.github.cottonmc.cotton.gui.widget.icon.TextureIcon
 import io.netty.buffer.Unpooled
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.util.Hand
-import net.minecraft.util.Identifier
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.world.InteractionHand
+import net.minecraft.resources.Identifier
 
 class ModularArmorScreenHandler(
     syncId: Int,
-    playerInventory: PlayerInventory,
-    private val hand: Hand
+    playerInventory: Inventory,
+    private val hand: InteractionHand
 ): SyncedGuiDescription(
     INSTANCE,
     syncId,
     playerInventory,
-    SimpleInventory(ModularArmorData(playerInventory.player.getStackInHand(hand)).dataModel?.stack ?: ItemStack.EMPTY),
-    ArrayPropertyDelegate(1)
+    ListeningContainer(1).apply {
+        setItem(0, ModularArmorData(playerInventory.player.getItemInHand(hand)).dataModel?.stack ?: ItemStack.EMPTY)
+    },
+    SimpleContainerData(1)
 ) {
 
     companion object {
@@ -65,7 +68,7 @@ class ModularArmorScreenHandler(
     }
 
     val stack: ItemStack
-        get() = playerInventory.player.getStackInHand(hand)
+        get() = playerInventory.player.getItemInHand(hand)
 
     val data
         get() = ModularArmorData(stack)
@@ -78,7 +81,7 @@ class ModularArmorScreenHandler(
         var lastEffectsList: WModuleListPanel? = null
         fun updateEffectsList() {
             val disabledEffects = data.disabledEffects
-            root.remove(lastEffectsList)
+            lastEffectsList?.let(root::remove)
             lastEffectsList = WModuleListPanel(getPossibleEffects(), {
                 WModularEffectToggle().apply {
                     setOnToggle { flag ->
@@ -92,12 +95,12 @@ class ModularArmorScreenHandler(
                 widget.toggle = effect.id !in disabledEffects
             }
 
-            root.add(lastEffectsList, 1 * 18 + 1, 1 * 18, (8 * 18) - 1, 4 * 18)
+            root.add(lastEffectsList!!, 1 * 18 + 1, 1 * 18, (8 * 18) - 1, 4 * 18)
             lastEffectsList!!.validate(this)
         }
 
 
-        val dataModelSlot = WItemSlot(blockInventory, 0, 1, 1, false).apply {
+        val dataModelSlot = WItemSlot(blockInventory!!, 0, 1, 1, false).apply {
             setInputFilter {
                 it.item is ItemDataModel && (it.item as ItemDataModel).category != null
             }
@@ -111,10 +114,9 @@ class ModularArmorScreenHandler(
         root.add(createPlayerInventoryPanel(), 0, (5 * 18) + 2)
         root.validate(this)
 
-        (blockInventory as? SimpleInventory)?.addListener {
-            val stack = blockInventory.getStack(0)
+        (blockInventory as ListeningContainer).listener = {
+            val stack = it.getItem(0)
             data.dataModel = takeOrNull(stack.item is ItemDataModel, stack::dataModel)
-            sendContentUpdates()
         }
     }
 
@@ -125,13 +127,7 @@ class ModularArmorScreenHandler(
     }
 
     private fun sendToggleUpdate(effectId: Identifier, flag: Boolean) {
-        ClientPlayNetworking.send(C2S_MODULAR_EFFECT_TOGGLE,
-            PacketByteBuf(Unpooled.buffer()).apply {
-                writeIdentifier(effectId)
-                writeBoolean(flag)
-                writeInt(hand.ordinal)
-            }
-        )
+        ClientPlayNetworking.send(ModularEffectTogglePayload(effectId, flag, hand))
     }
 
     override fun addPainters() {

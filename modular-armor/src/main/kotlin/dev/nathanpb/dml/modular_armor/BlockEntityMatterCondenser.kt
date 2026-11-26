@@ -26,23 +26,26 @@ import dev.nathanpb.dml.item.ItemPristineMatter
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.inventory.MatterCondenserInventory
 import dev.nathanpb.dml.utils.*
-import net.minecraft.block.BlockState
-import net.minecraft.block.InventoryProvider
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.inventory.Inventories
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.util.collection.DefaultedList
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.ContainerHelper
+import net.minecraft.world.item.ItemStack
+import net.fabricmc.fabric.api.`object`.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+import net.minecraft.world.Containers
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.core.NonNullList
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.LevelAccessor
 import team.reborn.energy.api.base.SimpleEnergyStorage
 
 class BlockEntityMatterCondenser(pos: BlockPos, state: BlockState) :
     ClientSyncedBlockEntity(BLOCK_ENTITY_TYPE, pos, state),
-    InventoryProvider
+    WorldlyContainerHolder
 {
 
     val energyCapacity = modularArmorConfig.machines.matterCondenser.energyCapacity
@@ -51,7 +54,7 @@ class BlockEntityMatterCondenser(pos: BlockPos, state: BlockState) :
     val energyStorage: SimpleEnergyStorage = object : SimpleEnergyStorage(energyCapacity, energyIO, energyIO) {
 
         override fun onFinalCommit() {
-            markDirty()
+            setChanged()
         }
     }
 
@@ -75,8 +78,8 @@ class BlockEntityMatterCondenser(pos: BlockPos, state: BlockState) :
             if(inputStack.item is ItemPristineMatter) {
                 val pristineEnergyValue = (inputStack.item as ItemPristineMatter).entityCategory.energyValue * modularArmorConfig.machines.matterCondenser.normalToPristineEnergyMultiplier
                 if(blockEntity.energyStorage.addEnergy(pristineEnergyValue)) {
-                    inputStack.decrement(1)
-                    blockEntity.markDirty()
+                    inputStack.shrink(1)
+                    blockEntity.setChanged()
                     blockEntity.sync()
                 }
             }
@@ -88,9 +91,9 @@ class BlockEntityMatterCondenser(pos: BlockPos, state: BlockState) :
         }
 
         val BLOCK_ENTITY_TYPE = Registry.register(
-            Registries.BLOCK_ENTITY_TYPE,
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
             BlockMatterCondenser.IDENTIFIER,
-            BlockEntityType.Builder.create(::BlockEntityMatterCondenser, BlockMatterCondenser.BLOCK_MATTER_CONDENSER).build(null)
+            FabricBlockEntityTypeBuilder.create(::BlockEntityMatterCondenser, BlockMatterCondenser.BLOCK_MATTER_CONDENSER).build()
         ).also {
             SIDED_PRISTINE.registerForBlockEntity(
                 { blockEntity, _ -> blockEntity.energyStorage },
@@ -99,27 +102,32 @@ class BlockEntityMatterCondenser(pos: BlockPos, state: BlockState) :
         }
     }
 
-    override fun getInventory(state: BlockState?, world: WorldAccess?, pos: BlockPos?) = inventory
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos) = inventory
 
-    override fun toTag(nbt: NbtCompound) {
-        Inventories.writeNbt(nbt, inventory.items())
-        nbt.putLong("${MOD_ID}:energy", energyStorage.amount)
+    override fun toTag(output: ValueOutput) {
+        ContainerHelper.saveAllItems(output, inventory.items())
+        output.putLong("${MOD_ID}:energy", energyStorage.amount)
     }
 
-    override fun fromTag(nbt: NbtCompound) {
-        val list = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY)
-        Inventories.readNbt(nbt, list)
+    override fun fromTag(input: ValueInput) {
+        val list = NonNullList.withSize(inventory.containerSize, ItemStack.EMPTY)
+        ContainerHelper.loadAllItems(input, list)
         inventory.setStacks(list)
 
-        energyStorage.amount = nbt.getLong("$MOD_ID:energy")
+        energyStorage.amount = input.getLongOr("$MOD_ID:energy", 0L)
     }
 
-    override fun toClientTag(nbt: NbtCompound) {
-        toTag(nbt)
+    override fun toClientTag(output: ValueOutput) {
+        toTag(output)
     }
 
-    override fun fromClientTag(nbt: NbtCompound) {
-        fromTag(nbt)
+    override fun fromClientTag(input: ValueInput) {
+        fromTag(input)
+    }
+
+    // Before 1.21.5 the block dropped the inventory when it was replaced
+    override fun preRemoveSideEffects(pos: BlockPos, state: BlockState) {
+        level?.let { Containers.dropContents(it, pos, inventory) }
     }
 
 }

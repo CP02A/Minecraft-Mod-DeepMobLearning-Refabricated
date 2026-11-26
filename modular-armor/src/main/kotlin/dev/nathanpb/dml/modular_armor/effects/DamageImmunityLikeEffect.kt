@@ -26,9 +26,9 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.core.WrappedEffectTriggerPayload
 import dev.nathanpb.dml.utils.takeOrNull
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Identifier
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.InteractionResult
+import net.minecraft.resources.Identifier
 
 abstract class DamageImmunityLikeEffect(
     id: Identifier,
@@ -38,11 +38,11 @@ abstract class DamageImmunityLikeEffect(
 
     override fun registerEvents() {
         VanillaEvents.LivingEntityDamageEvent.register { eventContext ->
-            takeOrNull(eventContext.entity is PlayerEntity) {
-                ModularEffectContext.from(eventContext.entity as PlayerEntity)
+            takeOrNull(eventContext.entity is Player) {
+                ModularEffectContext.from(eventContext.entity as Player)
                     .shuffled()
                     .firstOrNull { effectContext ->
-                        attemptToApply(effectContext, ModularEffectTriggerPayload.wrap(eventContext)) == ActionResult.SUCCESS
+                        attemptToApply(effectContext, ModularEffectTriggerPayload.wrap(eventContext)) == InteractionResult.SUCCESS
                     }?.let {
                         eventContext.copy(damage = 0F)
                     }

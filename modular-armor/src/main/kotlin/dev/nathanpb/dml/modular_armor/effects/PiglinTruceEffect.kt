@@ -26,8 +26,8 @@ import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import dev.nathanpb.dml.utils.firstInstanceOrNull
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.ActionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.InteractionResult
 
 class PiglinTruceEffect : ModularEffect<ModularEffectTriggerPayload>(
     identifier("piglin_truce"),
@@ -40,27 +40,27 @@ class PiglinTruceEffect : ModularEffect<ModularEffectTriggerPayload>(
             ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<PiglinTruceEffect>()
         }
 
-        fun trigger(player: PlayerEntity): ActionResult = INSTANCE?.run {
-            if (!player.world.isClient) {
+        fun trigger(player: Player): InteractionResult = INSTANCE?.run {
+            if (!player.level().isClientSide) {
                 val contexts = ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
 
-                if (player.world.time % 20 == 0L) { // FIXME works but doesn't consume energy
+                if (player.level().gameTime % 20 == 0L) { // FIXME works but doesn't consume energy
                     contexts.any { context ->
                         attemptToApply(context, ModularEffectTriggerPayload.EMPTY) { _, _ -> }
-                            .result == ActionResult.SUCCESS
+                            .result == InteractionResult.SUCCESS
                     }
                 }
 
                 contexts.any { context -> canApply(context, ModularEffectTriggerPayload.EMPTY) }
                     .let { canApply ->
                         if (canApply) {
-                            return ActionResult.FAIL
+                            return InteractionResult.FAIL
                         }
                     }
             }
             null
-        } ?: ActionResult.PASS
+        } ?: InteractionResult.PASS
 
     }
 

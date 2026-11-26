@@ -30,8 +30,8 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import io.github.ladysnake.pal.VanillaAbilities
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.util.ActionResult
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.InteractionResult
 
 class FlyEffect : AbilityBasedEffect(
     identifier("fly"),
@@ -44,22 +44,22 @@ class FlyEffect : AbilityBasedEffect(
         VanillaEvents.PlayerEntityTickEvent.register { player ->
             // Check if the data should be consumed
             if (
-                !player.world.isClient
-                && player.world.time % 20 == 0L
+                !player.level().isClientSide
+                && player.level().gameTime % 20 == 0L
                 && abilitySource.grants(player, ability)
-                && player.world.getBlockState(player.blockPos.down()).isAir
+                && player.level().getBlockState(player.blockPosition().below()).isAir
             ) {
                 ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                     .firstOrNull { context ->
-                        attemptToApply(context, ModularEffectTriggerPayload.EMPTY) == ActionResult.SUCCESS
+                        attemptToApply(context, ModularEffectTriggerPayload.EMPTY) == InteractionResult.SUCCESS
                     }
             }
         }
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.ADDITION)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_VALUE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.isMaxTier()

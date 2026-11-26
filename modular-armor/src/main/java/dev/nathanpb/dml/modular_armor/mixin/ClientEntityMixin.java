@@ -1,35 +1,13 @@
 package dev.nathanpb.dml.modular_armor.mixin;
 
-/*
- *
- *  Copyright (C) 2021 Nathan P. Bombana, IterationFunk
- *
- *  This file is part of Deep Mob Learning: Refabricated.
- *
- *  Deep Mob Learning: Refabricated is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Deep Mob Learning: Refabricated is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public License
- *  along with Deep Mob Learning: Refabricated.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 import dev.nathanpb.dml.modular_armor.EntityStatusEffectsKt;
 import dev.nathanpb.dml.modular_armor.InitKt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -37,17 +15,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Entity.class)
 public class ClientEntityMixin {
 
-    @Shadow public World world;
+    // Soul Vision: living entities near the player glow (client side only)
+    @Inject(at = @At("RETURN"), method = "isCurrentlyGlowing", cancellable = true)
+    private void dml$soulVisionGlow(CallbackInfoReturnable<Boolean> cir) {
+        Entity self = (Entity) (Object) this;
+        if (self.level().isClientSide() && !cir.getReturnValue()) {
+            if (self instanceof LivingEntity dis) {
+                Player player = Minecraft.getInstance().player;
+                if (player != null && dis != player && player.hasEffect(EntityStatusEffectsKt.getSOUL_VISION_EFFECT())) {
+                    MobEffectInstance soulVision = player.getEffect(EntityStatusEffectsKt.getSOUL_VISION_EFFECT());
 
-    @Inject(at = @At("RETURN"), method = "isGlowing", cancellable = true)
-    public void isGlowing(CallbackInfoReturnable<Boolean> cir) {
-        if (this.world.isClient && !cir.getReturnValue()) {
-            if((Object) this instanceof LivingEntity dis) {
-                PlayerEntity player = MinecraftClient.getInstance().player;
-                if(player != null && dis != player && player.hasStatusEffect(EntityStatusEffectsKt.getSOUL_VISION_EFFECT())) {
-                    StatusEffectInstance soulVision = player.getActiveStatusEffects().get(EntityStatusEffectsKt.getSOUL_VISION_EFFECT());
-
-                    if(player.distanceTo(dis) <= ((soulVision.getAmplifier() + 1) * InitKt.getModularArmorConfig().getGlitchArmor().getSoulVisionRangeMultiplier())) {
+                    if (soulVision != null && player.distanceTo(dis) <= ((soulVision.getAmplifier() + 1) * InitKt.getModularArmorConfig().getGlitchArmor().getSoulVisionRangeMultiplier())) {
                         cir.setReturnValue(true);
                     }
                 }

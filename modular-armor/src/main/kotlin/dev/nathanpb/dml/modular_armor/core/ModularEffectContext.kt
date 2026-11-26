@@ -20,35 +20,36 @@
 
 package dev.nathanpb.dml.modular_armor.core
 
+import net.minecraft.world.entity.EquipmentSlotGroup
 import dev.nathanpb.dml.data.DataModelData
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.modular_armor.ItemModularGlitchArmor
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
-import net.minecraft.entity.EquipmentSlot
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 
 data class ModularEffectContext (
-    val player: PlayerEntity,
+    val player: Player,
     val armor: ModularArmorData,
     val tier: DataModelTier = armor.tier(),
     val dataModel: DataModelData = armor.dataModel!! // This should only be called when there IS a data model
 ) {
     companion object {
 
-        fun from(player: PlayerEntity): List<ModularEffectContext> {
-            return from(player, player.armorItems.toList())
+        fun from(player: Player): List<ModularEffectContext> {
+            return from(player, EquipmentSlotGroup.ARMOR.slots().map(player::getItemBySlot))
         }
 
-        fun from(player: PlayerEntity, stacks: List<ItemStack>): List<ModularEffectContext> {
+        fun from(player: Player, stacks: List<ItemStack>): List<ModularEffectContext> {
             return stacks.mapNotNull { from(player, it) }
         }
 
-        fun from(player: PlayerEntity, slot: EquipmentSlot): ModularEffectContext? {
-            return from(player, player.getEquippedStack(slot))
+        fun from(player: Player, slot: EquipmentSlot): ModularEffectContext? {
+            return from(player, player.getItemBySlot(slot))
         }
 
-        fun from(player: PlayerEntity, stack: ItemStack): ModularEffectContext? {
+        fun from(player: Player, stack: ItemStack): ModularEffectContext? {
             if (stack.item is ItemModularGlitchArmor) {
                 val data = ModularArmorData(stack)
                 if (data.dataModel != null) {

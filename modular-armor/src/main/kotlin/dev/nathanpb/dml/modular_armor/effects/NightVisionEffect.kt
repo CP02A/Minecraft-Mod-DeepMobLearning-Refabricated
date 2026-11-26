@@ -27,10 +27,10 @@ import dev.nathanpb.dml.modular_armor.core.EffectStackOption
 import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.text.Text
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.network.chat.Component
 
 class NightVisionEffect : StatusEffectLikeEffect(
     identifier("night_vision"),
@@ -39,16 +39,16 @@ class NightVisionEffect : StatusEffectLikeEffect(
     EffectStackOption.RANDOMIZE
 ) {
 
-    override val name = Text.translatable("effect.minecraft.night_vision")
-    override val description = Text.translatable("effect.minecraft.night_vision.module_description")
+    override val name = Component.translatable("effect.minecraft.night_vision")
+    override val description = Component.translatable("effect.minecraft.night_vision.module_description")
 
 
-    override fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance {
-        return StatusEffectInstance(StatusEffects.NIGHT_VISION, 16 * 20, 0, true, false)
+    override fun createEffectInstance(context: ModularEffectContext): MobEffectInstance {
+        return MobEffectInstance(MobEffects.NIGHT_VISION, 16 * 20, 0, true, false)
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier("dml_night_vision", 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.ordinal >= 1

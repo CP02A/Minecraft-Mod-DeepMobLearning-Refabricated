@@ -26,10 +26,10 @@ import dev.nathanpb.dml.event.VanillaEvents
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.registry.tag.DamageTypeTags
-import net.minecraft.world.World
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.tags.DamageTypeTags
+import net.minecraft.world.level.Level
 import kotlin.math.min
 
 class ResistanceEffect : ProtectionLikeEffect(
@@ -38,16 +38,16 @@ class ResistanceEffect : ProtectionLikeEffect(
     modularArmorConfig.glitchArmor.costs::resistance
 ) {
 
-    override fun protectsAgainst(world: World, source: DamageSource): Boolean {
-        return !source.isIn(DamageTypeTags.BYPASSES_ARMOR) && !source.isIn(DamageTypeTags.WITCH_RESISTANT_TO)
+    override fun protectsAgainst(world: Level, source: DamageSource): Boolean {
+        return !source.`is`(DamageTypeTags.BYPASSES_ARMOR) && !source.`is`(DamageTypeTags.WITCH_RESISTANT_TO)
     }
 
     override fun acceptTier(tier: DataModelTier) = true
     override fun minimumTier(): DataModelTier = DataModelTier.FAULTY
     override fun isScaled() = true
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), armor.tier().ordinal.inc() / 20.0, EntityAttributeModifier.Operation.MULTIPLY_TOTAL)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), armor.tier().ordinal.inc() / 20.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL)
     }
 
     override fun inflictDamage(event: VanillaEvents.LivingEntityDamageContext, armorValues: Double): Float {

@@ -8,7 +8,7 @@ import io.github.cottonmc.cotton.gui.widget.WListPanel
 import io.github.cottonmc.cotton.gui.widget.data.Axis
 import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.client.gui.DrawContext
+import net.minecraft.client.gui.GuiGraphicsExtractor
 import java.util.function.BiConsumer
 import java.util.function.Supplier
 
@@ -28,12 +28,13 @@ class WModuleListPanel(
     }
 
 
-    override fun paint(context: DrawContext?, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    override fun paint(context: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         backgroundPainter!!.paintBackground(context, x, y, this)
 
-        if (scrollBar.value != (this as WListPanelAccessor).lastScroll) {
+        val accessor = this as WListPanelAccessor
+        if (scrollBar.value != accessor.`dml$getLastScroll`()) {
             layout()
-            (this as WListPanelAccessor).lastScroll = scrollBar.value
+            accessor.`dml$setLastScroll`(scrollBar.value)
         }
         for(child in children) {
             child.paint(context, x + child.x, y + child.y, mouseX - child.x, mouseY - child.y)

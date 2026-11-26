@@ -20,33 +20,112 @@
 package dev.nathanpb.dml.modular_armor.net
 
 import dev.nathanpb.dml.identifier
-import dev.nathanpb.dml.modular_armor.net.consumers.ModularEffectTogglePacketConsumer
-import dev.nathanpb.dml.modular_armor.net.consumers.SoulVisionRequestedPacketConsumer
-import dev.nathanpb.dml.modular_armor.net.consumers.TeleportEffectRequestedPacketConsumer
-import dev.nathanpb.dml.modular_armor.net.consumers.client.UndyingCooldownUpdatePacketConsumer
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
+import dev.nathanpb.dml.modular_armor.ItemModularGlitchArmor
+import dev.nathanpb.dml.modular_armor.core.ModularEffectRegistry
+import dev.nathanpb.dml.modular_armor.data.ModularArmorData
+import dev.nathanpb.dml.modular_armor.event.ModularArmorEvents
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.resources.Identifier
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.Vec3
 
-val C2S_TELEPORT_EFFECT_REQUESTED = identifier("teleport_effect_requested")
-val C2S_SOUL_VISION_REQUESTED = identifier("soul_vision_requested")
-val C2S_MODULAR_EFFECT_TOGGLE = identifier("modular_effect_toggle")
+// Since 1.20.5 packets are typed payloads with a stream codec (they were raw buffers). The ids stayed the same.
 
-val S2C_UNDYING_COOLDOWN_UPDATE = identifier("undying_cooldown_update")
+/** The client asks to teleport (the Teleport effect): where to and the look direction. */
+data class TeleportEffectRequestedPayload(val pos: Vec3, val rotation: Vec3) : CustomPacketPayload {
+    override fun type() = TYPE
 
-fun registerClientSidePackets() {
-    hashMapOf(
-        S2C_UNDYING_COOLDOWN_UPDATE to UndyingCooldownUpdatePacketConsumer()
-    ).forEach { (id, consumer) ->
-        ClientPlayNetworking.registerGlobalReceiver(id, consumer)
+    companion object {
+        val TYPE = CustomPacketPayload.Type<TeleportEffectRequestedPayload>(identifier("teleport_effect_requested"))
+        val CODEC: StreamCodec<RegistryFriendlyByteBuf, TeleportEffectRequestedPayload> = StreamCodec.composite(
+            Vec3.STREAM_CODEC, TeleportEffectRequestedPayload::pos,
+            Vec3.STREAM_CODEC, TeleportEffectRequestedPayload::rotation,
+            ::TeleportEffectRequestedPayload
+        )
     }
 }
 
+/** The client asks for soul vision (the Soul Vision effect's key). */
+class SoulVisionRequestedPayload : CustomPacketPayload {
+    override fun type() = TYPE
+
+    companion object {
+        val INSTANCE = SoulVisionRequestedPayload()
+        val TYPE = CustomPacketPayload.Type<SoulVisionRequestedPayload>(identifier("soul_vision_requested"))
+        val CODEC: StreamCodec<RegistryFriendlyByteBuf, SoulVisionRequestedPayload> = StreamCodec.unit(INSTANCE)
+    }
+}
+
+/** The client turns a modular effect of the armor in [hand] on or off. */
+data class ModularEffectTogglePayload(val id: Identifier, val enabled: Boolean, val hand: InteractionHand) : CustomPacketPayload {
+    override fun type() = TYPE
+
+    companion object {
+        val TYPE = CustomPacketPayload.Type<ModularEffectTogglePayload>(identifier("modular_effect_toggle"))
+        val CODEC: StreamCodec<RegistryFriendlyByteBuf, ModularEffectTogglePayload> = StreamCodec.composite(
+            Identifier.STREAM_CODEC, ModularEffectTogglePayload::id,
+            ByteBufCodecs.BOOL, ModularEffectTogglePayload::enabled,
+            InteractionHand.STREAM_CODEC, ModularEffectTogglePayload::hand,
+            ::ModularEffectTogglePayload
+        )
+    }
+}
+
+/** The server tells the client the cooldown of the Undying effect, for the HUD. */
+data class UndyingCooldownUpdatePayload(val cooldownTime: Int, val maxCooldownTime: Int) : CustomPacketPayload {
+    override fun type() = TYPE
+
+    companion object {
+        val TYPE = CustomPacketPayload.Type<UndyingCooldownUpdatePayload>(identifier("undying_cooldown_update"))
+        val CODEC: StreamCodec<RegistryFriendlyByteBuf, UndyingCooldownUpdatePayload> = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT, UndyingCooldownUpdatePayload::cooldownTime,
+            ByteBufCodecs.VAR_INT, UndyingCooldownUpdatePayload::maxCooldownTime,
+            ::UndyingCooldownUpdatePayload
+        )
+    }
+}
+
+/** Payload types exist on both sides, so this runs in the common entrypoint. */
+fun registerPayloadTypes() {
+    PayloadTypeRegistry.serverboundPlay().register(TeleportEffectRequestedPayload.TYPE, TeleportEffectRequestedPayload.CODEC)
+    PayloadTypeRegistry.serverboundPlay().register(SoulVisionRequestedPayload.TYPE, SoulVisionRequestedPayload.CODEC)
+    PayloadTypeRegistry.serverboundPlay().register(ModularEffectTogglePayload.TYPE, ModularEffectTogglePayload.CODEC)
+    PayloadTypeRegistry.clientboundPlay().register(UndyingCooldownUpdatePayload.TYPE, UndyingCooldownUpdatePayload.CODEC)
+}
+
+/** Handlers run on the server thread. */
 fun registerServerSidePackets() {
-    hashMapOf(
-        C2S_TELEPORT_EFFECT_REQUESTED to TeleportEffectRequestedPacketConsumer(),
-        C2S_SOUL_VISION_REQUESTED to SoulVisionRequestedPacketConsumer(),
-        C2S_MODULAR_EFFECT_TOGGLE to ModularEffectTogglePacketConsumer()
-    ).forEach { (id, consumer) ->
-        ServerPlayNetworking.registerGlobalReceiver(id, consumer)
+    ServerPlayNetworking.registerGlobalReceiver(TeleportEffectRequestedPayload.TYPE) { payload, context ->
+        val player = context.player()
+        val rotation = payload.rotation
+        if (
+            payload.pos.distanceToSqr(player.position()) <= 4*4
+            && arrayOf(rotation.x, rotation.y, rotation.z).all { it in -128.0..128.0 }
+        ) {
+            ModularArmorEvents.TeleportEffectRequestedEvent.invoker().invoke(player, payload.pos, rotation)
+        }
+    }
+
+    ServerPlayNetworking.registerGlobalReceiver(SoulVisionRequestedPayload.TYPE) { _, context ->
+        ModularArmorEvents.SoulVisionEffectRequestedEvent.invoker().invoke(context.player())
+    }
+
+    ServerPlayNetworking.registerGlobalReceiver(ModularEffectTogglePayload.TYPE) { payload, context ->
+        val stack = context.player().getItemInHand(payload.hand)
+        if (stack.item is ItemModularGlitchArmor) {
+            if (ModularEffectRegistry.INSTANCE.fromId(payload.id) != null) {
+                val data = ModularArmorData(stack)
+                data.disabledEffects = if (payload.enabled) {
+                    data.disabledEffects - payload.id
+                } else {
+                    data.disabledEffects + payload.id
+                }
+            }
+        }
     }
 }

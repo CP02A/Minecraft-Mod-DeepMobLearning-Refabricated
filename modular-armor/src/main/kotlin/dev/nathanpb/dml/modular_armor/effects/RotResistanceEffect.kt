@@ -28,14 +28,14 @@ import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import dev.nathanpb.dml.utils.firstInstanceOrNull
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.util.ActionResult
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.InteractionResult
 import kotlin.random.Random
 
 class RotResistanceEffect : ModularEffect<ModularEffectTriggerPayload>(
@@ -47,17 +47,17 @@ class RotResistanceEffect : ModularEffect<ModularEffectTriggerPayload>(
     companion object {
         private val INSTANCE = ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<RotResistanceEffect>()
 
-        fun attemptToCancelHunger(player: LivingEntity, stack: ItemStack, effects: List<Pair<StatusEffectInstance, Float>>): List<Pair<StatusEffectInstance, Float>> {
+        fun attemptToCancelHunger(player: LivingEntity, stack: ItemStack, effects: List<MobEffectInstance>): List<MobEffectInstance> {
             INSTANCE?.run {
-                if (player is PlayerEntity && !player.world.isClient && stack.item == Items.ROTTEN_FLESH) {
+                if (player is Player && !player.level().isClientSide && stack.item == Items.ROTTEN_FLESH) {
                     ModularEffectContext.from(player)
                         .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                         .firstOrNull { context ->
-                            attemptToApply(context, ModularEffectTriggerPayload.EMPTY) == ActionResult.SUCCESS
+                            attemptToApply(context, ModularEffectTriggerPayload.EMPTY) == InteractionResult.SUCCESS
                         }?.let { context ->
                             if (context.tier.ordinal > 0 || Random.nextFloat() <= .5) {
-                                return effects.filter { pair ->
-                                    pair.first.effectType != StatusEffects.HUNGER
+                                return effects.filter { effect ->
+                                    effect.effect != MobEffects.HUNGER
                                 }
                             }
                         }
@@ -77,9 +77,9 @@ class RotResistanceEffect : ModularEffect<ModularEffectTriggerPayload>(
     override fun isScaled() = true
     override fun getEnergyConsumptionType() = EffectInfo.EnergyConsumptionType.USE
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
         val value = if (armor.tier() == DataModelTier.FAULTY) 0.5 else 1.0
-        return EntityAttributeModifier(id.toString(), value, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+        return AttributeModifier(modifierId(armor), value, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
 }

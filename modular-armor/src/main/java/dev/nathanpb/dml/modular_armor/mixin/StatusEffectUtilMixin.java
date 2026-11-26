@@ -1,59 +1,36 @@
 package dev.nathanpb.dml.modular_armor.mixin;
 
-/*
- *
- *  Copyright (C) 2021 Nathan P. Bombana, IterationFunk
- *
- *  This file is part of Deep Mob Learning: Refabricated.
- *
- *  Deep Mob Learning: Refabricated is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Deep Mob Learning: Refabricated is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public License
- *  along with Deep Mob Learning: Refabricated.  If not, see <https://www.gnu.org/licenses/>.
- */
-
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.nathanpb.dml.modular_armor.EntityStatusEffectsKt;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectUtil;
-import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(StatusEffectUtil.class)
+/** Underwater Haste works like Haste while the eyes are in water. */
+@Mixin(MobEffectUtil.class)
 public class StatusEffectUtilMixin {
 
-    @Inject(at = @At("HEAD"), method = "hasHaste", cancellable = true)
-    private static void underwaterHasteHasPatch(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (
-            entity.hasStatusEffect(EntityStatusEffectsKt.getUNDERWATER_HASTE_EFFECT())
-                && entity.isSubmergedIn(FluidTags.WATER)
-        ) {
-            cir.setReturnValue(true);
-            cir.cancel();
-        }
+    @Unique
+    private static boolean dml$hasUnderwaterHaste(LivingEntity entity) {
+        return entity.hasEffect(EntityStatusEffectsKt.getUNDERWATER_HASTE_EFFECT()) && entity.isEyeInFluid(FluidTags.WATER);
     }
 
-    @Redirect(at = @At(value = "INVOKE", target = "Ljava/lang/Math;max(II)I"), method = "getHasteAmplifier")
-    private static int underwaterHasteAmplifierPatch(int haste, int conduit, LivingEntity entity) {
-        int underwaterHaste = 0;
-        if (
-            entity.hasStatusEffect(EntityStatusEffectsKt.getUNDERWATER_HASTE_EFFECT())
-                && entity.isSubmergedIn(FluidTags.WATER)
-        ) {
-            underwaterHaste = entity.getStatusEffect(EntityStatusEffectsKt.getUNDERWATER_HASTE_EFFECT()).getAmplifier();
-        }
+    @ModifyReturnValue(at = @At("RETURN"), method = "hasDigSpeed")
+    private static boolean dml$underwaterHasteHasDigSpeed(boolean original, LivingEntity entity) {
+        return original || dml$hasUnderwaterHaste(entity);
+    }
 
-        return Math.max(haste + underwaterHaste, conduit + underwaterHaste);
+    // max(haste, conduit) + underwater haste
+    @ModifyReturnValue(at = @At("RETURN"), method = "getDigSpeedAmplification")
+    private static int dml$underwaterHasteAmplification(int original, LivingEntity entity) {
+        if (dml$hasUnderwaterHaste(entity)) {
+            MobEffectInstance effect = entity.getEffect(EntityStatusEffectsKt.getUNDERWATER_HASTE_EFFECT());
+            return original + (effect != null ? effect.getAmplifier() : 0);
+        }
+        return original;
     }
 }

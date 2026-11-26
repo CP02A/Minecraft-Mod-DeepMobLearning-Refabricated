@@ -6,24 +6,13 @@
     "GSG"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:gold_ingot"
-    },
-    "M": {
-      "tag": "dml-refabricated:pristine_matter"
-    },
-    "C": {
-      "item": "dml-refabricated:machine_casing"
-    },
-    "F": {
-      "item": "dml-refabricated:physically_condensed_matrix_fragment"
-    },
-    "S": {
-      "item": "minecraft:netherite_scrap"
-    }
+    "G": "minecraft:gold_ingot",
+    "M": "#dml-refabricated:pristine_matter",
+    "C": "dml-refabricated:machine_casing",
+    "F": "dml-refabricated:physically_condensed_matrix_fragment",
+    "S": "minecraft:netherite_scrap"
   },
   "result": {
-    "item": "dml-refabricated:matter_condenser",
-    "count": 1
+    "id": "dml-refabricated:matter_condenser"
   }
 }

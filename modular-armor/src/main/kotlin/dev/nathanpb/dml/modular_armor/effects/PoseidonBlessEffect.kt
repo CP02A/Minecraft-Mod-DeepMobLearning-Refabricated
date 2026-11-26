@@ -28,10 +28,10 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.registry.tag.FluidTags
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.tags.FluidTags
 
 class PoseidonBlessEffect : StatusEffectLikeEffect(
     identifier("poseidon_bless"),
@@ -40,18 +40,18 @@ class PoseidonBlessEffect : StatusEffectLikeEffect(
     EffectStackOption.RANDOMIZE
 ) {
 
-    override fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance {
-        return StatusEffectInstance(StatusEffects.DOLPHINS_GRACE, 16 * 20, 0, true, false)
+    override fun createEffectInstance(context: ModularEffectContext): MobEffectInstance {
+        return MobEffectInstance(MobEffects.DOLPHINS_GRACE, 16 * 20, 0, true, false)
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier("dml_poseidon_bless", 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.isMaxTier()
     override fun minimumTier(): DataModelTier = DataModelTier.SELF_AWARE
 
     override fun canApply(context: ModularEffectContext, payload: ModularEffectTriggerPayload): Boolean {
-        return super.canApply(context, payload) && context.player.isSubmergedIn(FluidTags.WATER)
+        return super.canApply(context, payload) && context.player.isEyeInFluid(FluidTags.WATER)
     }
 }

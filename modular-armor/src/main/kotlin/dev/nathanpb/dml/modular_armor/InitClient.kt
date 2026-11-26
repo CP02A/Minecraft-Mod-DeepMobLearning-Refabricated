@@ -20,40 +20,37 @@
 
 package dev.nathanpb.dml.modular_armor
 
-import dev.nathanpb.dml.identifier
-import dev.nathanpb.dml.modular_armor.net.registerClientSidePackets
+import dev.nathanpb.dml.modular_armor.hud.UndyingCooldownHud
+import dev.nathanpb.dml.modular_armor.net.UndyingCooldownUpdatePayload
 import dev.nathanpb.dml.modular_armor.renderer.BlockEntityRendererMatterCondenser
 import dev.nathanpb.dml.modular_armor.screen.MatterCondenserScreenHandler
 import dev.nathanpb.dml.modular_armor.screen.ModularArmorScreenHandler
 import io.github.cottonmc.cotton.gui.client.CottonInventoryScreen
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
-import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
-import net.minecraft.client.gui.screen.ingame.HandledScreens
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
+import net.minecraft.client.gui.screens.MenuScreens
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers
 
+@Suppress("unused")
 fun initClient() {
     registerKeybindings()
-    registerClientSidePackets()
 
-    HandledScreens.register(MatterCondenserScreenHandler.INSTANCE) { handler, inventory, title ->
+    ClientPlayNetworking.registerGlobalReceiver(UndyingCooldownUpdatePayload.TYPE) { payload, _ ->
+        UndyingCooldownHud.INSTANCE.cooldownTime = payload.cooldownTime
+        UndyingCooldownHud.INSTANCE.maxCooldownTime = payload.maxCooldownTime
+    }
+    UndyingCooldownHud.register()
+
+    MenuScreens.register(MatterCondenserScreenHandler.INSTANCE) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
-    HandledScreens.register(ModularArmorScreenHandler.INSTANCE) { handler, inventory, title ->
+    MenuScreens.register(ModularArmorScreenHandler.INSTANCE) { handler, inventory, title ->
         CottonInventoryScreen(handler, inventory.player, title)
     }
 
-    BlockEntityRendererFactories.register(
+    BlockEntityRenderers.register(
         BlockEntityMatterCondenser.BLOCK_ENTITY_TYPE,
         ::BlockEntityRendererMatterCondenser
     )
 
-    ModelLoadingPlugin.register{ ctx ->
-        ctx.addModels(
-            identifier("block/matter_condenser_core")
-        )
-    }
-
-    ItemPristineEnergyCube.ITEM_PRISTINE_ENERGY_CUBE.let {
-        ColorProviderRegistry.ITEM.register({ stack, _ -> it.getScaledColor(stack) }, it)
-    }
+    // The energy cube's color comes from its item model (the dml-refabricated:battery_charge tint source)
 }

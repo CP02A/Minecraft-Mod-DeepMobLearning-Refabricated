@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 public interface IUndyingCooldown {
     @Nullable
-    Long getDmlRefUndyingLastUsage();
+    Long dml$getUndyingLastUsage();
 
-    void setDmlRefUndyingLastUsage(@Nullable Long time);
+    void dml$setUndyingLastUsage(@Nullable Long time);
 }

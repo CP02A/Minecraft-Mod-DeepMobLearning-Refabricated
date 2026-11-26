@@ -20,128 +20,112 @@
 
 package dev.nathanpb.dml.modular_armor
 
+import dev.nathanpb.dml.block.horizontalPlacementState
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.itemgroup.ITEM_GROUP_KEY
 import dev.nathanpb.dml.modular_armor.ItemModularGlitchArmor.Companion.GLITCH_BOOTS
 import dev.nathanpb.dml.modular_armor.screen.MatterCondenserScreenHandler
 import dev.nathanpb.dml.modular_armor.screen.MatterCondenserScreenHandlerFactory
 import dev.nathanpb.dml.utils.getFullCapacityStack
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.*
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.item.BlockItem
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.Properties
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.ItemScatterer
-import net.minecraft.util.Rarity
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
-import net.minecraft.world.WorldAccess
+import dev.nathanpb.dml.utils.registerBlock
+import dev.nathanpb.dml.utils.registerBlockItem
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.Containers
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.WorldlyContainerHolder
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.item.Rarity
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.EntityBlock
+import net.minecraft.world.level.block.HorizontalDirectionalBlock
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.phys.shapes.VoxelShape
 
-class BlockMatterCondenser : HorizontalFacingBlock(
-    FabricBlockSettings.create()
-        .strength(5F, 6F)
-), InventoryProvider, BlockEntityProvider {
+class BlockMatterCondenser(properties: Properties) : HorizontalDirectionalBlock(
+    properties.strength(5F, 6F)
+), WorldlyContainerHolder, EntityBlock {
 
     companion object {
-        val BLOCK_MATTER_CONDENSER = BlockMatterCondenser()
+        lateinit var BLOCK_MATTER_CONDENSER: BlockMatterCondenser
         val IDENTIFIER = identifier("matter_condenser")
 
         fun register() {
-            Registry.register(Registries.BLOCK, IDENTIFIER, BLOCK_MATTER_CONDENSER)
-            Registry.register(Registries.ITEM, IDENTIFIER, BlockItem(BLOCK_MATTER_CONDENSER, FabricItemSettings().rarity(Rarity.RARE)))
+            BLOCK_MATTER_CONDENSER = registerBlock(IDENTIFIER, factory = ::BlockMatterCondenser)
+            registerBlockItem(BLOCK_MATTER_CONDENSER) { it.rarity(Rarity.RARE) }
 
-            ItemGroupEvents.modifyEntriesEvent(ITEM_GROUP_KEY).register {
-                it.addAfter(getFullCapacityStack(GLITCH_BOOTS), BLOCK_MATTER_CONDENSER)
+            CreativeModeTabEvents.modifyOutputEvent(ITEM_GROUP_KEY).register {
+                it.insertAfter(getFullCapacityStack(GLITCH_BOOTS), BLOCK_MATTER_CONDENSER)
             }
         }
     }
 
     init {
-        defaultState = stateManager.defaultState
-            .with(Properties.HORIZONTAL_FACING, Direction.NORTH)
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH))
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>?) {
-        builder?.add(Properties.HORIZONTAL_FACING)
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        builder.add(FACING)
     }
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState {
-        var blockState = defaultState
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState = horizontalPlacementState(this, ctx)
 
-        for(direction in ctx.placementDirections) {
-            if(direction.axis.isHorizontal) {
-                blockState = blockState.with(FACING, direction.opposite)
-                if(blockState.canPlaceAt(ctx.world, ctx.blockPos)) return blockState
-            }
-        }
-        return blockState.with(FACING, Direction.NORTH)
-    }
-
-    override fun onUse(state: BlockState, world: World, pos: BlockPos, player: PlayerEntity?, hand: Hand, hit: BlockHitResult): ActionResult {
-        if (!world.isClient) {
-            player?.openHandledScreen(MatterCondenserScreenHandlerFactory(pos) {
+    override fun useWithoutItem(state: BlockState, world: Level, pos: BlockPos, player: Player, hit: BlockHitResult): InteractionResult {
+        if (!world.isClientSide) {
+            player.openMenu(MatterCondenserScreenHandlerFactory(pos) {
                 syncId, playerInventory, context -> MatterCondenserScreenHandler(syncId, playerInventory, context)
             })
         }
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
-    override fun onStateReplaced(state: BlockState, world: World, pos: BlockPos?, newState: BlockState, moved: Boolean) {
-        if (state.block !== newState.block) {
-            val blockEntity = world.getBlockEntity(pos)
-            if (blockEntity is BlockEntityMatterCondenser) {
-                ItemScatterer.spawn(world, pos, (blockEntity as BlockEntityMatterCondenser?)!!.inventory)
-
-                world.updateComparators(pos, this)
-            }
-            super.onStateReplaced(state, world, pos, newState, moved)
-        }
+    // The block entity drops the inventory (BlockEntityMatterCondenser#preRemoveSideEffects)
+    override fun affectNeighborsAfterRemoval(state: BlockState, world: ServerLevel, pos: BlockPos, movedByPiston: Boolean) {
+        Containers.updateNeighboursAfterDestroy(state, world, pos)
     }
 
-    override fun hasComparatorOutput(state: BlockState?) = true
+    override fun hasAnalogOutputSignal(state: BlockState) = true
 
-    override fun getComparatorOutput(state: BlockState?, world: World, pos: BlockPos?): Int {
-        return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos))
+    override fun getAnalogOutputSignal(state: BlockState, world: Level, pos: BlockPos, direction: Direction): Int {
+        return AbstractContainerMenu.getRedstoneSignalFromContainer((world.getBlockEntity(pos) as? BlockEntityMatterCondenser)?.inventory)
     }
 
-    override fun <T : BlockEntity?> getTicker(world: World, state: BlockState, type: BlockEntityType<T>): BlockEntityTicker<T>? {
-        return if(!world.isClient) BlockEntityMatterCondenser.ticker as BlockEntityTicker<T> else null
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : BlockEntity> getTicker(world: Level, state: BlockState, type: BlockEntityType<T>): BlockEntityTicker<T>? {
+        return if(!world.isClientSide) BlockEntityMatterCondenser.ticker as BlockEntityTicker<T> else null
     }
 
-    override fun createBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return BlockEntityMatterCondenser(pos, state)
     }
 
-    override fun getInventory(state: BlockState?, world: WorldAccess, pos: BlockPos): SidedInventory {
+    override fun getContainer(state: BlockState, world: LevelAccessor, pos: BlockPos): WorldlyContainer {
         return (world.getBlockEntity(pos) as BlockEntityMatterCondenser).inventory
     }
 
-    override fun getOutlineShape(
-        state: BlockState?,
-        world: BlockView?,
-        pos: BlockPos?,
-        context: ShapeContext?
+    override fun getShape(
+        state: BlockState,
+        world: BlockGetter,
+        pos: BlockPos,
+        context: CollisionContext
     ): VoxelShape {
         return voxelShape
     }
 
-    private val voxelShape: VoxelShape = Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 15.99, 16.0)
+    private val voxelShape: VoxelShape = box(0.0, 0.0, 0.0, 16.0, 15.99, 16.0)
 
 }

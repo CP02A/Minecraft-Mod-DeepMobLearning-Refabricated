@@ -21,9 +21,9 @@
 package dev.nathanpb.dml.modular_armor.payload
 
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
-import net.minecraft.util.math.Vec3d
+import net.minecraft.world.phys.Vec3
 
 data class TeleportEffectPayload(
-    val pos: Vec3d,
-    val rotation: Vec3d
+    val pos: Vec3,
+    val rotation: Vec3
 ) : ModularEffectTriggerPayload

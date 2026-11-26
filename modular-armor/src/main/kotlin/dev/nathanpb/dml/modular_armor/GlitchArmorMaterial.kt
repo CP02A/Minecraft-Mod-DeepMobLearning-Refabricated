@@ -21,37 +21,40 @@
 package dev.nathanpb.dml.modular_armor
 
 import dev.nathanpb.dml.enums.DataModelTier
-import dev.nathanpb.dml.item.ITEM_GLITCH_INGOT
+import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.utils.lerp
-import net.minecraft.entity.EquipmentSlot
-import net.minecraft.item.ArmorItem
-import net.minecraft.item.ArmorMaterial
-import net.minecraft.recipe.Ingredient
-import net.minecraft.sound.SoundEvent
-import net.minecraft.sound.SoundEvents
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.tags.TagKey
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.item.equipment.ArmorMaterial
+import net.minecraft.world.item.equipment.ArmorType
+import net.minecraft.world.item.equipment.EquipmentAssets
 import kotlin.math.floor
 
-class GlitchArmorMaterial : ArmorMaterial {
+/**
+ * The armor material is a record since 1.21.2. Its defense, toughness and knockback resistance are 0: the real values
+ * depend on the tier of the data model in each armor piece (see [ItemModularGlitchArmor.updateAttributeModifiers]).
+ */
+object GlitchArmorMaterial {
 
-    companion object {
-        val INSTANCE = GlitchArmorMaterial()
-    }
+    /** Glitch ingots (data/dml-refabricated/tags/item/repairs_glitch_armor.json) */
+    val REPAIR_TAG = TagKey.create(Registries.ITEM, identifier("repairs_glitch_armor"))
 
-    override fun getRepairIngredient(): Ingredient = Ingredient.ofItems(ITEM_GLITCH_INGOT)
+    /** assets/dml-refabricated/equipment/glitch.json */
+    val ASSET = ResourceKey.create(EquipmentAssets.ROOT_ID, identifier("glitch"))
 
-    override fun getEquipSound(): SoundEvent = SoundEvents.ITEM_ARMOR_EQUIP_GENERIC
-
-    override fun getDurability(type: ArmorItem.Type) = 1
-
-    override fun getName() = "glitch"
-
-    override fun getEnchantability() = 16
-
-    override fun getKnockbackResistance() = 0F
-
-    override fun getProtection(type: ArmorItem.Type) = 0
-
-    override fun getToughness() = 0F
+    val MATERIAL = ArmorMaterial(
+        1,
+        ArmorType.entries.associateWith { 0 },
+        16,
+        SoundEvents.ARMOR_EQUIP_GENERIC,
+        0F,
+        0F,
+        REPAIR_TAG,
+        ASSET
+    )
 
     fun getKnockbackResistance(tier: DataModelTier): Float {
         return (tier.ordinal.inc() / DataModelTier.values().size.toDouble()).lerp(1.0, 3.5).toFloat() / 10

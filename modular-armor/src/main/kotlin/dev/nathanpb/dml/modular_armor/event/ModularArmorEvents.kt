@@ -21,11 +21,11 @@
 package dev.nathanpb.dml.modular_armor.event
 
 import dev.nathanpb.dml.event.event
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.math.Vec3d
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.phys.Vec3
 
 object ModularArmorEvents {
-    val TeleportEffectRequestedEvent = event<(PlayerEntity, Vec3d, Vec3d)->Boolean> { listeners ->
+    val TeleportEffectRequestedEvent = event<(Player, Vec3, Vec3)->Boolean> { listeners ->
         { player, pos, rotation ->
             listeners.any {
                 it(player, pos, rotation)
@@ -33,7 +33,7 @@ object ModularArmorEvents {
         }
     }
 
-    val SoulVisionEffectRequestedEvent = event<(PlayerEntity)->Unit> { listeners ->
+    val SoulVisionEffectRequestedEvent = event<(Player)->Unit> { listeners ->
         { player ->
             listeners.forEach {
                 it(player)

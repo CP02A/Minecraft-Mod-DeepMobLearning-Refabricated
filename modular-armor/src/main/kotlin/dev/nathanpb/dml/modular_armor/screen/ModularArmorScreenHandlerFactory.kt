@@ -20,28 +20,25 @@
 
 package dev.nathanpb.dml.modular_armor.screen
 
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.item.Item
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.text.Text
-import net.minecraft.util.Hand
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider
+import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.item.Item
 
 class ModularArmorScreenHandlerFactory (
-    private val hand: Hand,
+    private val hand: InteractionHand,
     private val item: Item
-) : ExtendedScreenHandlerFactory {
+) : ExtendedMenuProvider<InteractionHand> {
 
-    override fun getDisplayName() = Text.translatable(item.translationKey)
+    override fun getDisplayName(): Component = Component.translatable(item.descriptionId)
 
-    override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler? {
+    override fun createMenu(syncId: Int, inv: Inventory, player: Player): AbstractContainerMenu {
         return ModularArmorScreenHandler(syncId, inv, hand)
     }
 
-    override fun writeScreenOpeningData(player: ServerPlayerEntity?, buf: PacketByteBuf?) {
-        buf?.writeInt(hand.ordinal)
-    }
+    override fun getScreenOpeningData(player: ServerPlayer): InteractionHand = hand
 }

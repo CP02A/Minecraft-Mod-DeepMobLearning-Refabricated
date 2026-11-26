@@ -22,21 +22,21 @@ package dev.nathanpb.dml.modular_armor.inventory
 
 import dev.nathanpb.dml.item.ItemPristineMatter
 import dev.nathanpb.dml.modular_armor.ItemModularGlitchArmor
-import net.minecraft.inventory.SidedInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.util.math.Direction
+import net.minecraft.world.WorldlyContainer
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.Direction
 
-class MatterCondenserInventory : SimpleInventory(3), SidedInventory {
+class MatterCondenserInventory : SimpleContainer(3), WorldlyContainer {
     companion object {
         const val ARMOR_SLOT = 0
         const val PRISTINE_ENERGY_IN = 1
         const val PRISTINE_ENERGY_OUT = 2
     }
 
-    override fun canExtract(slot: Int, stack: ItemStack, dir: Direction) = slot == ARMOR_SLOT
+    override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, dir: Direction) = slot == ARMOR_SLOT
 
-    override fun canInsert(slot: Int, stack: ItemStack, dir: Direction?): Boolean {
+    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, dir: Direction?): Boolean {
         return when(stack.item) {
             is ItemPristineMatter -> slot == PRISTINE_ENERGY_IN
             is ItemModularGlitchArmor -> slot == ARMOR_SLOT
@@ -44,20 +44,20 @@ class MatterCondenserInventory : SimpleInventory(3), SidedInventory {
         }
     }
 
-    override fun getAvailableSlots(side: Direction?): IntArray {
+    override fun getSlotsForFace(side: Direction): IntArray {
       return intArrayOf(ARMOR_SLOT, PRISTINE_ENERGY_IN, PRISTINE_ENERGY_OUT)
     }
 
     var armorStack: ItemStack
-        get() = getStack(ARMOR_SLOT)
-        set(value) = setStack(ARMOR_SLOT, value)
+        get() = getItem(ARMOR_SLOT)
+        set(value) = setItem(ARMOR_SLOT, value)
 
     var pristineInputStack: ItemStack
-        get() = getStack(PRISTINE_ENERGY_IN)
-        set(value) = setStack(PRISTINE_ENERGY_IN, value)
+        get() = getItem(PRISTINE_ENERGY_IN)
+        set(value) = setItem(PRISTINE_ENERGY_IN, value)
 
     var pristineOutputStack: ItemStack
-        get() = getStack(PRISTINE_ENERGY_OUT)
-        set(value) = setStack(PRISTINE_ENERGY_OUT, value)
+        get() = getItem(PRISTINE_ENERGY_OUT)
+        set(value) = setItem(PRISTINE_ENERGY_OUT, value)
 
 }

@@ -27,9 +27,9 @@ import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import dev.nathanpb.dml.utils.firstInstanceOrNull
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.ActionResult
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.InteractionResult
 
 class EndermenProofVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
     identifier("endermen_proof_vision"),
@@ -42,27 +42,27 @@ class EndermenProofVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
             ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<EndermenProofVisionEffect>()
         }
 
-        fun trigger(player: PlayerEntity): ActionResult = INSTANCE?.run {
-            if (!player.world.isClient) {
+        fun trigger(player: Player): InteractionResult = INSTANCE?.run {
+            if (!player.level().isClientSide) {
                 val contexts = ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
 
-                if (player.world.time % 20 == 0L) {
+                if (player.level().gameTime % 20 == 0L) {
                     contexts.any { context ->
                         attemptToApply(context, ModularEffectTriggerPayload.EMPTY) { _, _ -> }
-                            .result == ActionResult.SUCCESS
+                            .result == InteractionResult.SUCCESS
                     }
                 }
 
                 contexts.any { context -> canApply(context, ModularEffectTriggerPayload.EMPTY) }
                     .let { canApply ->
                         if (canApply) {
-                            return ActionResult.FAIL
+                            return InteractionResult.FAIL
                         }
                     }
             }
             null
-        } ?: ActionResult.PASS
+        } ?: InteractionResult.PASS
 
     }
 
@@ -73,8 +73,8 @@ class EndermenProofVisionEffect : ModularEffect<ModularEffectTriggerPayload>(
     override fun acceptTier(tier: DataModelTier) = true
     override fun minimumTier(): DataModelTier = DataModelTier.FAULTY
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
 }

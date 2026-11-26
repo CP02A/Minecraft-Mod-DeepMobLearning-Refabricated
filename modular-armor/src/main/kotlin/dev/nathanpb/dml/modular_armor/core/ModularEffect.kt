@@ -28,18 +28,20 @@ import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.utils.RenderUtils
 import dev.nathanpb.dml.utils.RenderUtils.Companion.STYLE
 import dev.nathanpb.dml.utils.getPipeText
-import net.minecraft.entity.attribute.ClampedEntityAttribute
-import net.minecraft.entity.attribute.EntityAttribute
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.text.Text
-import net.minecraft.text.TranslatableTextContent
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Identifier
-import net.minecraft.util.TypedActionResult
+import net.minecraft.world.entity.ai.attributes.RangedAttribute
+import net.minecraft.world.entity.ai.attributes.Attribute
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.contents.TranslatableContents
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.resources.Identifier
+import net.minecraft.core.Holder
+import net.minecraft.core.component.DataComponents
+import net.minecraft.world.item.component.ItemAttributeModifiers
 import org.jetbrains.annotations.ApiStatus
 
 abstract class ModularEffect<T: ModularEffectTriggerPayload>(
@@ -56,18 +58,18 @@ abstract class ModularEffect<T: ModularEffectTriggerPayload>(
     }
 
     open val name = if(id.namespace == MOD_ID) {
-        Text.translatable(modIdFormat)
+        Component.translatable(modIdFormat)
     } else {
-        Text.translatable(otherModIdFormat)
+        Component.translatable(otherModIdFormat)
     }
     open val description = if(id.namespace == MOD_ID) {
-        Text.translatable("$modIdFormat.description")
+        Component.translatable("$modIdFormat.description")
     } else {
-        Text.translatable("$otherModIdFormat.description")
+        Component.translatable("$otherModIdFormat.description")
     }
 
 
-    lateinit var entityAttribute: EntityAttribute
+    lateinit var entityAttribute: Holder<Attribute>
 
     @ApiStatus.OverrideOnly
     @ApiStatus.Internal
@@ -88,21 +90,30 @@ abstract class ModularEffect<T: ModularEffectTriggerPayload>(
     }
 
     @ApiStatus.OverrideOnly
-    protected open fun createEntityAttribute(): EntityAttribute {
-        return ClampedEntityAttribute((name.content as TranslatableTextContent).key, 0.0, 0.0, DataModelTier.values().size.dec() * 4.0)
-            .setTracked(true)
+    protected open fun createEntityAttribute(): Attribute {
+        return RangedAttribute((name.contents as TranslatableContents).key, 0.0, 0.0, DataModelTier.values().size.dec() * 4.0)
+            .setSyncable(true)
     }
 
-    open fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
+    open fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
         val level = DataModelTier.values().count {
             acceptTier(it) && it <= armor.tier()
         }
-        return EntityAttributeModifier(id.toString(), level.toDouble(), EntityAttributeModifier.Operation.ADDITION)
+        return AttributeModifier(modifierId(armor), level.toDouble(), AttributeModifier.Operation.ADD_VALUE)
+    }
+
+    /**
+     * Since 1.21 modifiers have ids instead of UUIDs, and modifiers with the same id replace each other: each armor
+     * piece gets its own id so the pieces still add up.
+     */
+    protected fun modifierId(armor: ModularArmorData): Identifier {
+        val slot = (armor.stack.item as? ItemModularGlitchArmor)?.slot?.getSerializedName() ?: "any"
+        return id.withSuffix("_$slot")
     }
 
     @ApiStatus.Internal
     fun registerEntityAttribute() {
-        entityAttribute = Registry.register(Registries.ATTRIBUTE, id, createEntityAttribute())
+        entityAttribute = Registry.registerForHolder(BuiltInRegistries.ATTRIBUTE, id, createEntityAttribute())
     }
 
     protected open fun canApply(context: ModularEffectContext, payload: T): Boolean {
@@ -119,26 +130,25 @@ abstract class ModularEffect<T: ModularEffectTriggerPayload>(
         }
     }
 
-    fun <R>attemptToApply(context: ModularEffectContext, payload: T, body: (ModularEffectContext, T) -> R): TypedActionResult<R> {
+    fun <R>attemptToApply(context: ModularEffectContext, payload: T, body: (ModularEffectContext, T) -> R): EffectResult<R> {
         if(canApply(context, payload)) {
             attemptToConsumeEnergy(context)
-            return TypedActionResult.success(body(context, payload))
+            return EffectResult(InteractionResult.SUCCESS, body(context, payload))
         }
-        return TypedActionResult.fail(null)
+        return EffectResult(InteractionResult.FAIL, null)
     }
 
-    fun attemptToApply(context: ModularEffectContext, payload: T): ActionResult {
+    fun attemptToApply(context: ModularEffectContext, payload: T): InteractionResult {
         return attemptToApply(context, payload) { _, _ -> }.result
     }
 
     open fun shouldConsumeEnergy(context: ModularEffectContext) = true
 
     fun sumLevelsOf(stack: ItemStack): Double {
-        return (stack.item as? ItemModularGlitchArmor)?.let { item ->
-            item.getAttributeModifiers(stack, item.slotType)
-                .get(entityAttribute)
-                .sumOf(EntityAttributeModifier::getValue)
-        } ?: 0.0
+        if (stack.item !is ItemModularGlitchArmor) return 0.0
+        return stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY).modifiers()
+            .filter { it.attribute() == entityAttribute }
+            .sumOf { it.modifier().amount() }
     }
 
     fun sumLevelsOf(stacks: List<ItemStack>): Double {
@@ -153,23 +163,23 @@ abstract class ModularEffect<T: ModularEffectTriggerPayload>(
         val energyConsumptionType: EnergyConsumptionType
     ) {
 
-        fun text(): Text {
+        fun text(): Component {
             val tierText = if(!scaled) {
                 minimumTier.text
             } else {
-                Text.translatable(
+                Component.translatable(
                     "tooltip.${MOD_ID}.data_tier_scales"
-                ).formatted(Formatting.YELLOW)
+                ).withStyle(ChatFormatting.YELLOW)
             }
 
             val energyConsumptionText = if(energyCost > 0) {
-                Text.translatable(
+                Component.translatable(
                     "tooltip.${MOD_ID}.data_amount.2",
                     energyCost,
                     energyConsumptionType.text
                 )
             } else {
-                Text.translatable("tooltip.${MOD_ID}.free")
+                Component.translatable("tooltip.${MOD_ID}.free")
             }.also {
                 it.style = RenderUtils.ALT_STYLE
             }
@@ -182,11 +192,14 @@ abstract class ModularEffect<T: ModularEffectTriggerPayload>(
         }
 
 
-        enum class EnergyConsumptionType(val text: Text) {
+        enum class EnergyConsumptionType(val text: Component) {
 
-            SECOND(Text.translatable("energyConsumption.${MOD_ID}.second")),
-            USE(Text.translatable("energyConsumption.${MOD_ID}.use"))
+            SECOND(Component.translatable("energyConsumption.${MOD_ID}.second")),
+            USE(Component.translatable("energyConsumption.${MOD_ID}.use"))
 
         }
     }
 }
+
+/** The outcome of [ModularEffect.attemptToApply] (InteractionResultHolder no longer exists). */
+data class EffectResult<R>(val result: InteractionResult, val value: R?)

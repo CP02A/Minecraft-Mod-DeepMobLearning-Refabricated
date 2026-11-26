@@ -20,6 +20,7 @@
 
 package dev.nathanpb.dml.modular_armor.screen
 
+import net.minecraft.core.BlockPos
 import dev.nathanpb.dml.MOD_ID
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.BlockEntityMatterCondenser
@@ -39,21 +40,21 @@ import io.github.cottonmc.cotton.gui.widget.WPlainPanel
 import io.github.cottonmc.cotton.gui.widget.WSprite
 import io.github.cottonmc.cotton.gui.widget.data.HorizontalAlignment
 import io.github.cottonmc.cotton.gui.widget.data.Insets
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.SimpleInventory
-import net.minecraft.screen.ArrayPropertyDelegate
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.text.Text
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.inventory.SimpleContainerData
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.network.chat.Component
 
 class MatterCondenserScreenHandler(
     syncId: Int,
-    playerInventory: PlayerInventory,
-    ctx: ScreenHandlerContext
+    playerInventory: Inventory,
+    ctx: ContainerLevelAccess
 ) : SyncedGuiDescription(
     INSTANCE,
     syncId, playerInventory,
     getBlockInventory(ctx),
-    ArrayPropertyDelegate(2) // dummy delegate, required for WEnergyComponent's WBar
+    SimpleContainerData(2) // dummy delegate, required for WEnergyComponent's WBar
 ) {
 
     companion object {
@@ -64,13 +65,13 @@ class MatterCondenserScreenHandler(
     }
 
     init {
-        val blockPos = ctx.get { _, pos -> { pos }}.get().invoke()
+        val blockPos = ctx.evaluate { _, pos -> pos }.orElse(BlockPos.ZERO)
 
         val root = WPlainPanel()
         setRootPanel(root)
         root.insets = Insets.ROOT_PANEL
 
-        val armorSlot = WItemSlot(blockInventory, 0, 1, 1, true).apply {
+        val armorSlot = WItemSlot(blockInventory!!, 0, 1, 1, true).apply {
             setInputFilter {
                 it.item is ItemModularGlitchArmor
             }
@@ -88,13 +89,13 @@ class MatterCondenserScreenHandler(
         root.add(armorSlotFrame, (3 * 18) + 6, (2 * 18) - 6, 42, 42)
 
 
-        val energyComponent = object : WEnergyComponent(0, 1, blockInventory, 1, 2, true) {
+        val energyComponent = object : WEnergyComponent(0, 1, blockInventory!!, 1, 2, true) {
 
             override fun tick() {
                 super.tick()
 
-                val energyProperties = ArrayPropertyDelegate(2)
-                val blockEntity = world.getBlockEntity(blockPos)
+                val energyProperties = SimpleContainerData(2)
+                val blockEntity = level.getBlockEntity(blockPos)
                 if(blockEntity is BlockEntityMatterCondenser) {
                     energyProperties[0] = blockEntity.energyStorage.amount.toInt()
                     energyProperties[1] = blockEntity.energyCapacity.toInt()
@@ -108,30 +109,30 @@ class MatterCondenserScreenHandler(
         val infoBubble = WInfoBubbleWidget(
             INFO_BUBBLE,
             listOf(
-                Text.translatable(
+                Component.translatable(
                     "tooltip.${MOD_ID}.matter_condenser.1",
-                    Text.translatable("tooltip.${MOD_ID}.matter_condenser.pristine_matter").also { it.style = STYLE }
+                    Component.translatable("tooltip.${MOD_ID}.matter_condenser.pristine_matter").also { it.style = STYLE }
                 ).also { it.style = ALT_STYLE },
-                Text.translatable("tooltip.${MOD_ID}.matter_condenser.2").also { it.style = ALT_STYLE },
-                Text.translatable(
+                Component.translatable("tooltip.${MOD_ID}.matter_condenser.2").also { it.style = ALT_STYLE },
+                Component.translatable(
                     "tooltip.${MOD_ID}.matter_condenser.3",
-                    Text.translatable("text.${MOD_ID}.pristine_energy").also { it.style = STYLE },
-                    Text.translatable("text.${MOD_ID}.pristine_energy.short.2").also { it.style = STYLE }
+                    Component.translatable("text.${MOD_ID}.pristine_energy").also { it.style = STYLE },
+                    Component.translatable("text.${MOD_ID}.pristine_energy.short.2").also { it.style = STYLE }
                 ).also { it.style = ALT_STYLE },
-                Text.empty(),
-                Text.translatable(
+                Component.empty(),
+                Component.translatable(
                     "tooltip.${MOD_ID}.matter_condenser.4",
-                    Text.translatable("text.${MOD_ID}.pristine_energy").also { it.style = STYLE },
+                    Component.translatable("text.${MOD_ID}.pristine_energy").also { it.style = STYLE },
                 ).also { it.style = ALT_STYLE },
-                Text.translatable("tooltip.${MOD_ID}.matter_condenser.5").also { it.style = ALT_STYLE },
-                Text.translatable(
+                Component.translatable("tooltip.${MOD_ID}.matter_condenser.5").also { it.style = ALT_STYLE },
+                Component.translatable(
                     "tooltip.${MOD_ID}.matter_condenser.6",
-                    Text.translatable("tooltip.${MOD_ID}.glitch_armor.title").also { it.style = STYLE }
+                    Component.translatable("tooltip.${MOD_ID}.glitch_armor.title").also { it.style = STYLE }
                 ).also { it.style = ALT_STYLE },
-                Text.translatable("tooltip.${MOD_ID}.matter_condenser.7").also { it.style = ALT_STYLE },
-                Text.empty(),
-                Text.translatable("tooltip.${MOD_ID}.matter_condenser.8").also { it.style = ALT_STYLE },
-                Text.translatable("tooltip.${MOD_ID}.matter_condenser.9").also { it.style = ALT_STYLE },
+                Component.translatable("tooltip.${MOD_ID}.matter_condenser.7").also { it.style = ALT_STYLE },
+                Component.empty(),
+                Component.translatable("tooltip.${MOD_ID}.matter_condenser.8").also { it.style = ALT_STYLE },
+                Component.translatable("tooltip.${MOD_ID}.matter_condenser.9").also { it.style = ALT_STYLE },
             )
         )
         root.add(infoBubble, (8 * 18) + 10, 0, 8, 8)
@@ -139,9 +140,6 @@ class MatterCondenserScreenHandler(
         root.add(createPlayerInventoryPanel(), 0, (5 * 18) + 2)
         setTitleAlignment(HorizontalAlignment.CENTER)
         root.validate(this)
-        (blockInventory as? SimpleInventory)?.addListener {
-            sendContentUpdates()
-        }
     }
 
     override fun addPainters() {

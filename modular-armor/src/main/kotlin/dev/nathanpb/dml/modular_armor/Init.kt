@@ -24,12 +24,13 @@ import dev.nathanpb.dml.itemgroup.ITEM_GROUP_KEY
 import dev.nathanpb.dml.modular_armor.BlockMatterCondenser.Companion.BLOCK_MATTER_CONDENSER
 import dev.nathanpb.dml.modular_armor.ItemPristineEnergyCube.Companion.ITEM_PRISTINE_ENERGY_CUBE
 import dev.nathanpb.dml.modular_armor.core.ModularEffectRegistry
+import dev.nathanpb.dml.modular_armor.net.registerPayloadTypes
 import dev.nathanpb.dml.modular_armor.net.registerServerSidePackets
 import dev.nathanpb.dml.modular_armor.screen.MatterCondenserScreenHandler
 import dev.nathanpb.dml.modular_armor.screen.ModularArmorScreenHandler
 import dev.nathanpb.dml.utils.initConfig
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.minecraft.item.ItemStack
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents
+import net.minecraft.world.item.ItemStack
 
 
 @Suppress("unused")
@@ -39,14 +40,15 @@ fun init() {
     BlockEntityMatterCondenser.BLOCK_ENTITY_TYPE // force evaluate to register
     ItemPristineEnergyCube.register()
     ModularEffectRegistry.registerDefaults()
+    registerPayloadTypes()
     registerServerSidePackets()
     registerStatusEffects()
 
     MatterCondenserScreenHandler.INSTANCE // force evaluate to register
     ModularArmorScreenHandler.INSTANCE // force evaluate to register
 
-    ItemGroupEvents.modifyEntriesEvent(ITEM_GROUP_KEY).register {
-        it.addAfter(ItemStack(BLOCK_MATTER_CONDENSER), ITEM_PRISTINE_ENERGY_CUBE)
+    CreativeModeTabEvents.modifyOutputEvent(ITEM_GROUP_KEY).register {
+        it.insertAfter(BLOCK_MATTER_CONDENSER, ITEM_PRISTINE_ENERGY_CUBE)
     }
 }
 

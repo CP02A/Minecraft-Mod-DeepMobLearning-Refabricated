@@ -27,10 +27,10 @@ import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
 import dev.nathanpb.dml.utils.firstInstanceOrNull
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.util.ActionResult
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.InteractionResult
 import kotlin.math.roundToInt
 
 class ArcheryEffect : ModularEffect<ModularEffectTriggerPayload>(
@@ -45,7 +45,7 @@ class ArcheryEffect : ModularEffect<ModularEffectTriggerPayload>(
             ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<ArcheryEffect>()
         }
 
-        private fun levels(player: PlayerEntity): Int {
+        private fun levels(player: Player): Int {
             return ModularEffectContext.from(player)
                 .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                 .firstOrNull {
@@ -55,11 +55,11 @@ class ArcheryEffect : ModularEffect<ModularEffectTriggerPayload>(
                 } ?: 0
         }
 
-        fun crossbowFastpullReducedTicks(player: PlayerEntity): Int {
+        fun crossbowFastpullReducedTicks(player: Player): Int {
             return (levels(player) * 2.5).roundToInt()
         }
 
-        fun bowFastpullLevels(player: PlayerEntity) : Float {
+        fun bowFastpullLevels(player: Player) : Float {
             return levels(player) / 2.5F
         }
 
@@ -67,11 +67,11 @@ class ArcheryEffect : ModularEffect<ModularEffectTriggerPayload>(
 
     override fun registerEvents() {
         fun trigger(player: LivingEntity, stack: ItemStack) { // FIXME not working
-            if (player is PlayerEntity && !player.world.isClient) {
+            if (player is Player && !player.level().isClientSide) {
                 ModularEffectContext.from(player)
                     .run(EffectStackOption.PRIORITIZE_GREATER.apply)
                     .any {
-                        attemptToApply(it, ModularEffectTriggerPayload.EMPTY) == ActionResult.SUCCESS
+                        attemptToApply(it, ModularEffectTriggerPayload.EMPTY) == InteractionResult.SUCCESS
                     }
             }
         }

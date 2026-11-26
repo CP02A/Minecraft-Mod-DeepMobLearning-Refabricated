@@ -20,14 +20,15 @@
 
 package dev.nathanpb.dml.modular_armor.effects
 
+import net.minecraft.world.entity.EntityTypes
 import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.WrappedEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.LivingEntity
 
 class ZombieFriendlyEffect : TargetCancellationEffect(
     identifier("zombie_friendly"),
@@ -39,6 +40,6 @@ class ZombieFriendlyEffect : TargetCancellationEffect(
     override fun minimumTier(): DataModelTier = DataModelTier.SELF_AWARE
 
     override fun canApply(context: ModularEffectContext, payload: WrappedEffectTriggerPayload<LivingEntity>): Boolean {
-        return payload.value.type == EntityType.ZOMBIE && super.canApply(context, payload)
+        return payload.value.type == EntityTypes.ZOMBIE && super.canApply(context, payload)
     }
 }

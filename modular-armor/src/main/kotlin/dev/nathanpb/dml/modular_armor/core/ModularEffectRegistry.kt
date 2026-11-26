@@ -24,7 +24,7 @@ import dev.nathanpb.dml.enums.DataModelTier
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.modular_armor.effects.*
 import dev.nathanpb.dml.trial.affix.core.DuplicatedRegistryException
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 
 class ModularEffectRegistry {
     companion object {

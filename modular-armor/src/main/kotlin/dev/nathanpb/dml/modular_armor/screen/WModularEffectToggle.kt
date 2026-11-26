@@ -25,32 +25,32 @@ import dev.nathanpb.dml.screen.handler.widget.WDarkToggleButton
 import dev.nathanpb.dml.utils.RenderUtils
 import io.github.cottonmc.cotton.gui.client.ScreenDrawing
 import io.github.cottonmc.cotton.gui.widget.TooltipBuilder
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.network.chat.Component
+import net.minecraft.ChatFormatting
 import kotlin.properties.Delegates
 
 class WModularEffectToggle : WDarkToggleButton() {
 
     var effect by Delegates.observable<ModularEffect<*>?>(null) { _, _, value ->
         setLabel(
-            value?.name?.setStyle(RenderUtils.STYLE) ?: Text.empty()
+            value?.name?.setStyle(RenderUtils.STYLE) ?: Component.empty()
         )
     }
 
     override fun addTooltip(tooltip: TooltipBuilder) {
         if(effect == null) return
-        tooltip.add(effect!!.name.setStyle(RenderUtils.STYLE).formatted(Formatting.UNDERLINE))
+        tooltip.add(effect!!.name.setStyle(RenderUtils.STYLE).withStyle(ChatFormatting.UNDERLINE))
         tooltip.add(effect!!.getEffectInfo().text())
-        tooltip.add(Text.empty())
-        tooltip.add(effect!!.description.formatted(Formatting.GRAY))
+        tooltip.add(Component.empty())
+        tooltip.add(effect!!.description.withStyle(ChatFormatting.GRAY))
     }
 
 
-    override fun paint(ctx: DrawContext, x: Int, y: Int, mouseX: Int, mouseY: Int) {
+    override fun paint(ctx: GuiGraphicsExtractor, x: Int, y: Int, mouseX: Int, mouseY: Int) {
         ScreenDrawing.drawString(
             ctx,
-            label!!.asOrderedText(),
+            label!!.getVisualOrderText(),
             x, y + 6,
             -0x1
         )

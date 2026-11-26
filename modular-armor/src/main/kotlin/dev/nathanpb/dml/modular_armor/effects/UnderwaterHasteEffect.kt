@@ -29,9 +29,9 @@ import dev.nathanpb.dml.modular_armor.core.EffectStackOption
 import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.registry.tag.FluidTags
-import net.minecraft.text.Text
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.tags.FluidTags
+import net.minecraft.network.chat.Component
 
 class UnderwaterHasteEffect : StatusEffectLikeEffect(
     identifier("underwater_haste"),
@@ -40,11 +40,11 @@ class UnderwaterHasteEffect : StatusEffectLikeEffect(
     EffectStackOption.PRIORITIZE_GREATER
 ) {
 
-    override val name = Text.translatable("effect.${MOD_ID}.underwater_haste")
-    override val description = Text.translatable("effect.${MOD_ID}.underwater_haste.description")
+    override val name = Component.translatable("effect.${MOD_ID}.underwater_haste")
+    override val description = Component.translatable("effect.${MOD_ID}.underwater_haste.description")
 
-    override fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance {
-        return StatusEffectInstance(UNDERWATER_HASTE_EFFECT, 16 * 20, context.tier.ordinal / 2, true, false)
+    override fun createEffectInstance(context: ModularEffectContext): MobEffectInstance {
+        return MobEffectInstance(UNDERWATER_HASTE_EFFECT, 16 * 20, context.tier.ordinal / 2, true, false)
     }
 
     override fun acceptTier(tier: DataModelTier) = true
@@ -52,7 +52,7 @@ class UnderwaterHasteEffect : StatusEffectLikeEffect(
     // TODO should be per block?
 
     override fun canApply(context: ModularEffectContext, payload: ModularEffectTriggerPayload): Boolean {
-        return super.canApply(context, payload) && context.player.isSubmergedIn(FluidTags.WATER)
+        return super.canApply(context, payload) && context.player.isEyeInFluid(FluidTags.WATER)
     }
 
 }

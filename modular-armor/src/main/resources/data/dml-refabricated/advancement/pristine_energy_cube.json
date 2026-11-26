@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "dml-refabricated:pristine_energy_cube"
+      "id": "dml-refabricated:pristine_energy_cube"
     },
     "title": {
       "translate": "advancements.dml-refabricated.pristine_energy_cube"
@@ -17,7 +17,7 @@
       "conditions": {
         "items": [
           {
-            "items": ["dml-refabricated:pristine_energy_cube"]
+            "items": "dml-refabricated:pristine_energy_cube"
           }
         ]
       }

@@ -20,10 +20,10 @@
 
 package dev.nathanpb.dml.modular_armor
 
-import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.world.entity.player.Player
 
-var PlayerEntity.undyingLastUsage
-    get() = (this as dev.nathanpb.dml.modular_armor.accessor.IUndyingCooldown).dmlRefUndyingLastUsage
+var Player.undyingLastUsage
+    get() = (this as dev.nathanpb.dml.modular_armor.accessor.IUndyingCooldown).`dml$getUndyingLastUsage`()
     set(value) {
-        (this as dev.nathanpb.dml.modular_armor.accessor.IUndyingCooldown).dmlRefUndyingLastUsage = value
+        (this as dev.nathanpb.dml.modular_armor.accessor.IUndyingCooldown).`dml$setUndyingLastUsage`(value)
     }

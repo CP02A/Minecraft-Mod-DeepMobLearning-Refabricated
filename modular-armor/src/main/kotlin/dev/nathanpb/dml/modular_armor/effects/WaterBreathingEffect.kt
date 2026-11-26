@@ -28,11 +28,11 @@ import dev.nathanpb.dml.modular_armor.core.ModularEffectContext
 import dev.nathanpb.dml.modular_armor.core.ModularEffectTriggerPayload
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.registry.tag.FluidTags
-import net.minecraft.text.Text
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.tags.FluidTags
+import net.minecraft.network.chat.Component
 
 class WaterBreathingEffect : StatusEffectLikeEffect(
     identifier("water_breathing"),
@@ -41,22 +41,22 @@ class WaterBreathingEffect : StatusEffectLikeEffect(
     EffectStackOption.RANDOMIZE
 ) {
 
-    override val name = Text.translatable("effect.minecraft.water_breathing")
-    override val description = Text.translatable("effect.minecraft.water_breathing.module_description")
+    override val name = Component.translatable("effect.minecraft.water_breathing")
+    override val description = Component.translatable("effect.minecraft.water_breathing.module_description")
 
-    override fun createEffectInstance(context: ModularEffectContext): StatusEffectInstance {
-        return StatusEffectInstance(StatusEffects.WATER_BREATHING, 16 * 20, 0, true, false)
+    override fun createEffectInstance(context: ModularEffectContext): MobEffectInstance {
+        return MobEffectInstance(MobEffects.WATER_BREATHING, 16 * 20, 0, true, false)
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier("dml_water_breathing", 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.ordinal >= 3
     override fun minimumTier() = DataModelTier.SUPERIOR
 
     override fun canApply(context: ModularEffectContext, payload: ModularEffectTriggerPayload): Boolean {
-        return super.canApply(context, payload) && context.player.isSubmergedIn(FluidTags.WATER)
+        return super.canApply(context, payload) && context.player.isEyeInFluid(FluidTags.WATER)
     }
 
 }

@@ -19,22 +19,33 @@
 
 package dev.nathanpb.dml.modular_armor
 
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.core.Holder
 import dev.nathanpb.dml.identifier
-import net.minecraft.entity.effect.StatusEffect
-import net.minecraft.entity.effect.StatusEffectCategory
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
+import net.minecraft.world.effect.MobEffect
+import net.minecraft.world.effect.MobEffectCategory
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
 
-class UnderwaterHasteEffect : StatusEffect(StatusEffectCategory.BENEFICIAL, 0x46D99C)
-class DepthStriderEffect : StatusEffect(StatusEffectCategory.BENEFICIAL, 0x02A7D9)
-class SoulVisionEffect : StatusEffect(StatusEffectCategory.BENEFICIAL, 0xFFD900)
+class UnderwaterHasteEffect : MobEffect(MobEffectCategory.BENEFICIAL, 0x46D99C)
+/**
+ * Depth strider is an attribute since 1.21: the effect adds 0.25 water movement efficiency per level (before, a mixin
+ * into LivingEntity#travel added 0.25 per amplifier level, so level I did nothing).
+ */
+class DepthStriderEffect : MobEffect(MobEffectCategory.BENEFICIAL, 0x02A7D9) {
+    init {
+        addAttributeModifier(Attributes.WATER_MOVEMENT_EFFICIENCY, identifier("effect.depth_strider"), 0.25, AttributeModifier.Operation.ADD_VALUE)
+    }
+}
+class SoulVisionEffect : MobEffect(MobEffectCategory.BENEFICIAL, 0xFFD900)
 
 val UNDERWATER_HASTE_EFFECT = register("underwater_haste", UnderwaterHasteEffect())
 val DEPTH_STRIDER_EFFECT = register("depth_strider", DepthStriderEffect())
 val SOUL_VISION_EFFECT = register("soul_vision", SoulVisionEffect())
 
-private fun register(idPath: String, entry: StatusEffect): StatusEffect {
-    return Registry.register(Registries.STATUS_EFFECT, Registries.STATUS_EFFECT.toList().size, identifier(idPath).toString(), entry)
+private fun register(idPath: String, entry: MobEffect): Holder<MobEffect> {
+    return Registry.registerForHolder(BuiltInRegistries.MOB_EFFECT, identifier(idPath), entry)
 }
 
 fun registerStatusEffects() {

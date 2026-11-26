@@ -25,10 +25,10 @@ import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.registry.tag.DamageTypeTags
-import net.minecraft.world.World
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.tags.DamageTypeTags
+import net.minecraft.world.level.Level
 
 class FireImmunityEffect : DamageImmunityLikeEffect(
     identifier("fire_immunity"),
@@ -36,10 +36,10 @@ class FireImmunityEffect : DamageImmunityLikeEffect(
     modularArmorConfig.glitchArmor.costs::fireImmunity
 ) {
 
-    override fun protectsAgainst(world: World, source: DamageSource) = source.isIn(DamageTypeTags.IS_FIRE)
+    override fun protectsAgainst(world: Level, source: DamageSource) = source.`is`(DamageTypeTags.IS_FIRE)
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     override fun acceptTier(tier: DataModelTier) = tier.isMaxTier()

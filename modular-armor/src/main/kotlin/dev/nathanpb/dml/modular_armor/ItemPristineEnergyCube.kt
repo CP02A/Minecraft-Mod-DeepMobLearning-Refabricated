@@ -8,30 +8,29 @@ import dev.nathanpb.dml.utils.RenderUtils.Companion.ALT_STYLE
 import dev.nathanpb.dml.utils.RenderUtils.Companion.STYLE
 import dev.nathanpb.dml.utils.getEmptyAndFullCapacityEnergyItem
 import dev.nathanpb.dml.utils.getEnergyStorage
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.text.Style
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents
+import dev.nathanpb.dml.utils.registerItem
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.network.chat.Style
 import team.reborn.energy.api.EnergyStorage
 import java.awt.Color
 
-class ItemPristineEnergyCube : AbstractItemBattery() {
+class ItemPristineEnergyCube(properties: Properties) : AbstractItemBattery(properties) {
 
     companion object {
-        val ITEM_PRISTINE_ENERGY_CUBE = ItemPristineEnergyCube()
+        lateinit var ITEM_PRISTINE_ENERGY_CUBE: ItemPristineEnergyCube
 
         fun register() {
-            Registry.register(Registries.ITEM, identifier("pristine_energy_cube"), ITEM_PRISTINE_ENERGY_CUBE)
+            ITEM_PRISTINE_ENERGY_CUBE = registerItem("pristine_energy_cube", ::ItemPristineEnergyCube)
 
             ITEM_PRISTINE.registerForItems(::getEnergyStorage, ITEM_PRISTINE_ENERGY_CUBE)
             EnergyStorage.ITEM.registerForItems({ _, _ ->
                 return@registerForItems EnergyStorage.EMPTY
             }, ITEM_PRISTINE_ENERGY_CUBE)
-            ItemGroupEvents.modifyEntriesEvent(ITEM_GROUP_KEY).register {
-                getEmptyAndFullCapacityEnergyItem(ITEM_PRISTINE_ENERGY_CUBE).forEach { stack ->
-                    it.addAfter(ItemStack(BlockMatterCondenser.BLOCK_MATTER_CONDENSER), stack)
-                }
+            CreativeModeTabEvents.modifyOutputEvent(ITEM_GROUP_KEY).register {
+                it.insertAfter(BlockMatterCondenser.BLOCK_MATTER_CONDENSER, getEmptyAndFullCapacityEnergyItem(ITEM_PRISTINE_ENERGY_CUBE))
             }
 
         }

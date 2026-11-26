@@ -20,17 +20,18 @@
 
 package dev.nathanpb.dml.modular_armor.effects
 
+import net.minecraft.world.entity.EntityTypes
 import dev.nathanpb.dml.enums.EntityCategory
 import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.data.ModularArmorData
-import net.minecraft.entity.EntityType
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.attribute.EntityAttributeModifier
-import net.minecraft.entity.attribute.EntityAttributes
-import net.minecraft.entity.mob.MobEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Identifier
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.world.entity.Mob
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.InteractionResult
+import net.minecraft.resources.Identifier
 import kotlin.math.sqrt
 
 abstract class TargetCancellationEffect(
@@ -44,43 +45,43 @@ abstract class TargetCancellationEffect(
             ModularEffectRegistry.INSTANCE.all.filterIsInstance<TargetCancellationEffect>()
         }
 
-        fun attemptToCancel(mob: MobEntity, target: LivingEntity): ActionResult {
+        fun attemptToCancel(mob: Mob, target: LivingEntity): InteractionResult {
             INSTANCES.forEach { instance ->
-                if (target is PlayerEntity && !target.world.isClient) {
+                if (target is Player && !target.level().isClientSide) {
                     ModularEffectContext.from(target)
                         .run(EffectStackOption.RANDOMIZE.apply)
                         .any {
-                            instance.attemptToApply(it, ModularEffectTriggerPayload.wrap(mob)) == ActionResult.SUCCESS
+                            instance.attemptToApply(it, ModularEffectTriggerPayload.wrap(mob)) == InteractionResult.SUCCESS
                         }.let {
                             if (it) {
-                                return ActionResult.FAIL
+                                return InteractionResult.FAIL
                             }
                         }
                 }
             }
-            return ActionResult.PASS
+            return InteractionResult.PASS
         }
     }
 
     override fun registerEvents() {
     }
 
-    override fun createEntityAttributeModifier(armor: ModularArmorData): EntityAttributeModifier {
-        return EntityAttributeModifier(id.toString(), 1.0, EntityAttributeModifier.Operation.MULTIPLY_BASE)
+    override fun createEntityAttributeModifier(armor: ModularArmorData): AttributeModifier {
+        return AttributeModifier(modifierId(armor), 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)
     }
 
     // Make sure it will only cancel the target when absolutely needed
     override fun canApply(context: ModularEffectContext, payload: WrappedEffectTriggerPayload<LivingEntity>): Boolean {
         val entity = payload.value
         return entity.isAlive
-            && entity.canTarget(EntityType.PLAYER)
+            && entity.canAttack(context.player)
             && super.canApply(context, payload)
-            && sqrt(entity.distanceTo(context.player)) <= entity.getAttributeValue(EntityAttributes.GENERIC_FOLLOW_RANGE)
+            && sqrt(entity.distanceTo(context.player)) <= entity.getAttributeValue(Attributes.FOLLOW_RANGE)
     }
 
     // Data draining goes brrrrrr
     override fun shouldConsumeEnergy(context: ModularEffectContext): Boolean {
-        return super.shouldConsumeEnergy(context) && context.player.world.time % 20 == 0L
+        return super.shouldConsumeEnergy(context) && context.player.level().gameTime % 20 == 0L
     }
 
 }

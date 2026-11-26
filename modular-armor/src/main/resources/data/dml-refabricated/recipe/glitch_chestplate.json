@@ -1,15 +1,9 @@
 {
   "type": "minecraft:smithing_transform",
-  "base": {
-    "item": "minecraft:netherite_chestplate"
-  },
-  "addition": {
-    "item": "dml-refabricated:glitch_ingot"
-  },
-  "template": {
-    "item": "dml-refabricated:glitch_upgrade_smithing_template"
-  },
+  "base": "minecraft:netherite_chestplate",
+  "addition": "dml-refabricated:glitch_ingot",
+  "template": "dml-refabricated:glitch_upgrade_smithing_template",
   "result": {
-    "item": "dml-refabricated:glitch_chestplate"
+    "id": "dml-refabricated:glitch_chestplate"
   }
 }

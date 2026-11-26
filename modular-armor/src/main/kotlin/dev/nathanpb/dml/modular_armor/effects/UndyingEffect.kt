@@ -26,22 +26,22 @@ import dev.nathanpb.dml.event.VanillaEvents
 import dev.nathanpb.dml.identifier
 import dev.nathanpb.dml.modular_armor.core.*
 import dev.nathanpb.dml.modular_armor.modularArmorConfig
-import dev.nathanpb.dml.modular_armor.net.S2C_UNDYING_COOLDOWN_UPDATE
+import dev.nathanpb.dml.modular_armor.net.UndyingCooldownUpdatePayload
 import dev.nathanpb.dml.modular_armor.undyingLastUsage
 import dev.nathanpb.dml.utils.firstInstanceOrNull
 import dev.nathanpb.dml.utils.`if`
 import io.netty.buffer.Unpooled
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
-import net.minecraft.advancement.criterion.Criteria
-import net.minecraft.entity.effect.StatusEffectInstance
-import net.minecraft.entity.effect.StatusEffects
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.stat.Stats
-import net.minecraft.util.ActionResult
+import net.minecraft.advancements.triggers.CriteriaTriggers
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.stats.Stats
+import net.minecraft.world.InteractionResult
 import kotlin.math.max
 
 class UndyingEffect : ModularEffect<ModularEffectTriggerPayload>(
@@ -55,22 +55,22 @@ class UndyingEffect : ModularEffect<ModularEffectTriggerPayload>(
             ModularEffectRegistry.INSTANCE.all.firstInstanceOrNull<UndyingEffect>()
         }
 
-        fun trigger(player: PlayerEntity) = INSTANCE?.run {
+        fun trigger(player: Player) = INSTANCE?.run {
             return@run ModularEffectContext.from(player)
                 .run(EffectStackOption.RANDOMIZE.apply)
-                .any { attemptToApply(it, ModularEffectTriggerPayload.EMPTY) == ActionResult.SUCCESS }
+                .any { attemptToApply(it, ModularEffectTriggerPayload.EMPTY) == InteractionResult.SUCCESS }
                 .`if` {
-                    player.undyingLastUsage = player.world.time
+                    player.undyingLastUsage = player.level().gameTime
                     player.health = 1.0f
-                    player.clearStatusEffects()
-                    player.addStatusEffect(StatusEffectInstance(StatusEffects.REGENERATION, 900, 1))
-                    player.addStatusEffect(StatusEffectInstance(StatusEffects.ABSORPTION, 100, 1))
-                    player.addStatusEffect(StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 800, 0))
-                    player.world.sendEntityStatus(player, 35.toByte())
+                    player.removeAllEffects()
+                    player.addEffect(MobEffectInstance(MobEffects.REGENERATION, 900, 1))
+                    player.addEffect(MobEffectInstance(MobEffects.ABSORPTION, 100, 1))
+                    player.addEffect(MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0))
+                    player.level().broadcastEntityEvent(player, 35.toByte())
 
-                    if (player is ServerPlayerEntity) {
-                        player.incrementStat(Stats.USED.getOrCreateStat(Items.TOTEM_OF_UNDYING))
-                        Criteria.USED_TOTEM.trigger(player, ItemStack(Items.TOTEM_OF_UNDYING))
+                    if (player is ServerPlayer) {
+                        player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING))
+                        CriteriaTriggers.USED_TOTEM.trigger(player, ItemStack(Items.TOTEM_OF_UNDYING))
                     }
                     syncCooldown(player, modularArmorConfig.glitchArmor.undyingCooldownTime)
                     true
@@ -80,7 +80,7 @@ class UndyingEffect : ModularEffect<ModularEffectTriggerPayload>(
 
     override fun registerEvents() {
         VanillaEvents.PlayerEntityTickEvent.register { player ->
-            if (!player.world.isClient && player.world.time % 40 == 0L) {
+            if (!player.level().isClientSide && player.level().gameTime % 40 == 0L) {
                 ModularEffectContext.from(player)
                     .any { super.canApply(it, ModularEffectTriggerPayload.EMPTY) }
                     .let {
@@ -95,11 +95,11 @@ class UndyingEffect : ModularEffect<ModularEffectTriggerPayload>(
     override fun minimumTier(): DataModelTier = DataModelTier.SELF_AWARE
     override fun getEnergyConsumptionType() = EffectInfo.EnergyConsumptionType.USE
 
-    private fun remainingCooldownTime(player: PlayerEntity): Int = player.undyingLastUsage?.let {
-        max(modularArmorConfig.glitchArmor.undyingCooldownTime - (player.world.time - it), 0).toInt()
+    private fun remainingCooldownTime(player: Player): Int = player.undyingLastUsage?.let {
+        max(modularArmorConfig.glitchArmor.undyingCooldownTime - (player.level().gameTime - it), 0).toInt()
     } ?: 0
 
-    private fun isUnderCooldown(player: PlayerEntity) : Boolean {
+    private fun isUnderCooldown(player: Player) : Boolean {
         return remainingCooldownTime(player) > 0
     }
 
@@ -107,13 +107,9 @@ class UndyingEffect : ModularEffect<ModularEffectTriggerPayload>(
         return super.canApply(context, payload) && !isUnderCooldown(context.player)
     }
 
-    fun syncCooldown(player: PlayerEntity, maxCooldownTime: Int) {
-        if (player is ServerPlayerEntity) {
-            val packet = PacketByteBuf(Unpooled.buffer()).apply {
-                writeInt(remainingCooldownTime(player))
-                writeInt(maxCooldownTime)
-            }
-            ServerPlayNetworking.send(player, S2C_UNDYING_COOLDOWN_UPDATE, packet)
+    fun syncCooldown(player: Player, maxCooldownTime: Int) {
+        if (player is ServerPlayer) {
+            ServerPlayNetworking.send(player, UndyingCooldownUpdatePayload(remainingCooldownTime(player).toInt(), maxCooldownTime))
         }
     }
 }

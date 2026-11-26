@@ -19,35 +19,42 @@
 
 package dev.nathanpb.dml.modular_armor.hud
 
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
+import net.minecraft.client.renderer.RenderPipelines
 import dev.nathanpb.dml.identifier
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.util.math.MatrixStack
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import com.mojang.blaze3d.vertex.PoseStack
 
 class UndyingCooldownHud {
 
     companion object {
         val INSTANCE = UndyingCooldownHud()
         private val TEXTURE = identifier("textures/gui/undying_cooldown.png")
+
+        /** Drawn after the vanilla HUD (it was a mixin into Gui#renderStatusBars). */
+        fun register() {
+            HudElementRegistry.addLast(identifier("undying_cooldown")) { ctx, _ -> INSTANCE.render(ctx) }
+        }
     }
 
-    private val client = MinecraftClient.getInstance()
+    private val client = Minecraft.getInstance()
 
     var cooldownTime = 0
     var maxCooldownTime = 0
 
-    fun render(ctx: DrawContext) {
+    fun render(ctx: GuiGraphicsExtractor) {
         if (cooldownTime == 0 || maxCooldownTime == 0) {
             return
         }
 
         // TODO render a progress bar or something
         // val percent = cooldownTime / maxCooldownTime
-        val width = client.window.scaledWidth
-        val height = client.window.scaledHeight
+        val width = client.window.guiScaledWidth
+        val height = client.window.guiScaledHeight
 
-        ctx.matrices.push()
-        ctx.drawTexture(
+        ctx.blit(
+            RenderPipelines.GUI_TEXTURED,
             TEXTURE,
             width - 64,
             height - 18,
@@ -55,7 +62,6 @@ class UndyingCooldownHud {
             16, 16,
             16, 16
         )
-        ctx.matrices.pop()
 
     }
 }
