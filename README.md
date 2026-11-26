@@ -12,15 +12,14 @@ While IterationFunk's Deep Mob Learning focused much more on acquiring mob loot,
 About Deep Mob Learning: **Refabricated**, unfortunately we don't plan to support (Neo)Forge. But if you want to, take some words with us at [Cafeteria](https://discord.com/invite/G4PjhEf) and [the original author of the mod](#IterationFunks-version) and you should be fine.
 
 ## Setting up dev env
-The only special thing that differs from a gradle project is that you will need to have this section in your ``~/.gradle/gradle.properties`` file:
+This branch targets Minecraft 26.3 (see [PORTING.md](PORTING.md)). Gradle downloads the Java 25 toolchain by itself.
 
 ```
-mcdUsername=foo
-mcdPassword=bar
-curseforgeToken=foobar
+./gradlew build       # the jar, in build/libs
+./gradlew nonUiTest   # checks + headless game test server (all registries, mixins and data packs load)
+./gradlew uiTest      # plays the mod in the game window, screenshots in runs/clientGametest/screenshots
+./gradlew runClient   # dev client
 ```
-
-The values can be dummy, fill with the right ones if you somehow need to do the publications.
 
 ## Contact
 If you want to **report bugs**, give ideas, **feedbacks** or discuss the mod at all, feel free to open an Issue or join our [Discord Guild](https://discord.com/invite/G4PjhEf) and go to the Deep Mob Learning: Refabricated section. Please note that this guild is a shared place where me and some friends are making mods, take a look at their mods too!
