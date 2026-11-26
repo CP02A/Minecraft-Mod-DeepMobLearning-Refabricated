@@ -73,8 +73,9 @@ abstract class TargetCancellationEffect(
     // Make sure it will only cancel the target when absolutely needed
     override fun canApply(context: ModularEffectContext, payload: WrappedEffectTriggerPayload<LivingEntity>): Boolean {
         val entity = payload.value
+        // (1.20.1 also asked whether the mob attacks players at all. It is only asked from LivingEntity.canAttack, after it
+        // returned true: calling canAttack here would recurse through that mixin)
         return entity.isAlive
-            && entity.canAttack(context.player)
             && super.canApply(context, payload)
             && sqrt(entity.distanceTo(context.player)) <= entity.getAttributeValue(Attributes.FOLLOW_RANGE)
     }
