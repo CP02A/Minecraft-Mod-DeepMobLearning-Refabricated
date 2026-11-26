@@ -1,95 +1,172 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+// Minecraft 26.3 is unobfuscated, so this uses the non-remapping Loom plugin: no mappings, no remapJar, plain
+// `implementation` instead of `modImplementation`.
 plugins {
-    id 'fabric-loom' version '1.2-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom'
+    id 'org.jetbrains.kotlin.jvm'
     id 'maven-publish'
-    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'com.matthewprenger.cursegradle' version '1.4.0'
-    id 'com.modrinth.minotaur' version '2.3.1'
-}
-
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
-compileKotlin.kotlinOptions.jvmTarget = "17"
-
-archivesBaseName = project.archives_base_name
-version = project.mod_version
-group = project.maven_group
-
-def RELEASE_TYPE =
-        project.mod_version.contains('ALPHA') ? 'alpha' :
-        project.mod_version.contains('BETA') ? 'beta'
-        : 'release'
-
-@SuppressWarnings('GrMethodMayBeStatic')
-def getChangeLog() {
-    return ""
-}
-
-def ENV = System.getenv()
-
-
-repositories {
-    maven { url = "https://jitpack.io" }
-    maven { url = "https://maven.terraformersmc.com/releases/" }
-    maven { url = "https://maven.cafeteria.dev/releases/" }
-    maven { url = "https://maven.cafeteria.dev/" }
-}
-
-dependencies {
-    api project(path: ":base", configuration: "namedElements")
-    include project(path: ":base", configuration: "namedElements")
-
-    api project(path: ":modular-armor", configuration: "namedElements")
-    include project(path: ":modular-armor", configuration: "namedElements")
-
-    api project(path: ":simulacrum", configuration: "namedElements")
-    include project(path: ":simulacrum", configuration: "namedElements")
-
-    modRuntimeOnly "com.terraformersmc:modmenu:${project.modmenuVersion}"
 }
 
 allprojects {
-    apply plugin: 'fabric-loom'
+    apply plugin: 'net.fabricmc.fabric-loom'
     apply plugin: 'org.jetbrains.kotlin.jvm'
 
-    version = project.mod_version
+    version = rootProject.mod_version
+    group = rootProject.maven_group
 
     repositories {
-        maven { url = "https://maven.cafeteria.dev/releases/" }
-        maven { url = "https://maven.cafeteria.dev/" }
+        mavenCentral()
+        // LibGui (see libs/maven/.../LibGui-*.pom)
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "Local libs"
+                    url = rootProject.uri("libs/maven")
+                }
+            }
+            filter { includeGroup("io.github.cottonmc") }
+        }
+        // REI and its dependencies (Cloth Config, Architectury)
+        maven {
+            name = "Shedaniel"
+            url = uri("https://maven.shedaniel.me/")
+        }
+        maven {
+            name = "TerraformersMC"
+            url = uri("https://maven.terraformersmc.com/releases/")
+            content { includeGroup("com.terraformersmc") }
+        }
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "Modrinth"
+                    url = uri("https://api.modrinth.com/maven")
+                }
+            }
+            filter { includeGroup("maven.modrinth") }
+        }
     }
 
     dependencies {
-        minecraft "com.mojang:minecraft:${project.minecraft_version}"
-        mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-        modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+        minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+        implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_version}"
+        implementation "net.fabricmc:fabric-language-kotlin:${rootProject.fabric_kotlin_version}"
+    }
 
-        modApi("dev.nathanpb:KtDataTagLib:${project.ktdatataglib_version}")
-        include("dev.nathanpb:KtDataTagLib:${project.ktdatataglib_version}")
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(rootProject.java_version as int)
+        }
+    }
+
+    kotlin {
+        jvmToolchain(rootProject.java_version as int)
+        compilerOptions {
+            jvmTarget = JvmTarget.fromTarget(rootProject.java_version)
+            // Kotlin interfaces with default methods compile to real JVM default methods, like Java ones
+            freeCompilerArgs.add("-jvm-default=no-compatibility")
+            // Lambdas as classes, like Kotlin 1.x did: invokedynamic lambdas resolve their types when they are created,
+            // which loads client-only classes on dedicated servers (e.g. LibGui painters in RenderUtils)
+            freeCompilerArgs.addAll("-Xlambdas=class", "-Xsam-conversions=class")
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = rootProject.java_version as int
+    }
+
+    // Mod-specific names for the nested module jars (base -> dml-refabricated-base)
+    if (project != rootProject) {
+        base.archivesName = "dml-refabricated-${project.name}"
     }
 
     jar {
         exclude("**/*.bbmodel")
         exclude("**/*.xcf")
-        from "LICENSE"
-    }
-
-    processResources {
-        inputs.property "version", project.version
-
-        filesMatching("fabric.mod.json") {
-            expand "version": project.version
+        from(rootProject.file("COPYING")) {
+            rename { "${it}_${rootProject.archives_base_name}" }
         }
     }
 
-    configurations.configureEach {
-        resolutionStrategy.force("net.fabricmc:fabric-loader:${project.loader_version}")
+    processResources {
+        def props = [version: project.version]
+        inputs.properties(props)
+        filesMatching("fabric.mod.json") {
+            expand props
+        }
     }
-
 }
 
+base {
+    archivesName = project.archives_base_name
+}
 
+dependencies {
+    // The three modules are separate mods, nested in the main jar
+    api project(':base')
+    include project(':base')
+    api project(':modular-armor')
+    include project(':modular-armor')
+    api project(':simulacrum')
+    include project(':simulacrum')
+
+    localRuntime "com.terraformersmc:modmenu:${project.modmenuVersion}"
+    localRuntime "me.shedaniel:RoughlyEnoughItems-fabric:${project.reiVersion}"
+}
+
+// The client game tests live in their own source set and test mod, so they never end up in the published jar
+sourceSets {
+    clientGametest {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+    }
+}
+
+loom {
+    mods {
+        "dml-refabricated-client-gametest" {
+            sourceSet sourceSets.clientGametest
+        }
+    }
+    runs {
+        client {
+            client()
+            setConfigName('Fabric Client')
+            ideConfigGenerated(true)
+            runDir('run')
+        }
+        server {
+            server()
+            setConfigName('Fabric Server')
+            ideConfigGenerated(true)
+            runDir('runServer')
+        }
+        // Boots the game test server (loads every registry, mixin and data pack), runs the game tests and exits
+        gametest {
+            server()
+            setConfigName('Fabric Game Test Server')
+            vmArg('-Dfabric-api.gametest')
+            vmArg("-Dfabric-api.gametest.report-file=${project.layout.buildDirectory.file('test-results/gametest/TEST-fabric-gametest.xml').get().asFile}")
+            runDir('runs/gametest')
+        }
+        // Opens the game window, loads all client resources, runs the client game tests (none yet) and exits.
+        // Needs a display, so it isn't part of build/check
+        clientGametest {
+            client()
+            setConfigName('Fabric Client Game Test')
+            source(sourceSets.clientGametest)
+            vmArg('-Dfabric.client.gametest')
+            runDir('runs/clientGametest')
+        }
+    }
+}
+
+java {
+    withSourcesJar()
+}
 
 publishing {
     publications {
@@ -97,93 +174,98 @@ publishing {
             from components.java
         }
     }
+}
 
-    repositories {
-        maven {
-            url "https://maven.cafeteria.dev/releases"
-            credentials {
-                username = project.property("mcdUsername")
-                password = project.property("mcdPassword")
+// Every UI test run starts with an empty screenshot folder
+tasks.matching { it.name == 'runClientGametest' }.configureEach {
+    doFirst { delete(file('runs/clientGametest/screenshots')) }
+}
+
+// Isolation rule 8: the jars contain only this mod's classes, nested jars are this mod's modules or the libraries
+// bundled on purpose (shared interop APIs that only work when every mod uses the same classes)
+def verifyJarContents = tasks.register('verifyJarContents') {
+    group = 'verification'
+    description = 'Checks that the jars only contain DML classes and the nested jars bundled on purpose'
+    def jarFile = tasks.named('jar').flatMap { it.archiveFile }
+    inputs.file(jarFile)
+    doLast {
+        def ownPackage = 'dev/nathanpb/dml/'
+        def ownJars = [~/dml-refabricated-(base|modular-armor|simulacrum)-[^\/]+\.jar/]
+        def libraryJars = [~/LibGui-[^\/]+\.jar/, ~/energy-[^\/]+\.jar/, ~/pal-[^\/]+\.jar/]
+        def problems = []
+        def checkJar
+        checkJar = { String name, java.util.zip.ZipInputStream zip ->
+            def entry
+            while ((entry = zip.nextEntry) != null) {
+                def path = entry.name
+                if (path.endsWith('.class') && !path.startsWith(ownPackage)) {
+                    problems << "${name}: class outside of ${ownPackage}: ${path}"
+                } else if (path.startsWith('META-INF/jars/') && !entry.directory) {
+                    def nested = path.substring('META-INF/jars/'.length())
+                    if (ownJars.any { nested ==~ it }) {
+                        checkJar(nested, new java.util.zip.ZipInputStream(new ByteArrayInputStream(zip.readAllBytes())))
+                    } else if (!libraryJars.any { nested ==~ it }) {
+                        problems << "${name}: unexpected nested jar: ${path}"
+                    }
+                }
             }
-            authentication {
-                basic(BasicAuthentication)
-            }
+        }
+        jarFile.get().asFile.withInputStream { checkJar(jarFile.get().asFile.name, new java.util.zip.ZipInputStream(it)) }
+        if (!problems.isEmpty()) {
+            throw new GradleException("The jar breaks the isolation rules:\n  " + problems.join('\n  '))
         }
     }
 }
 
-processResources {
-    inputs.property "version", project.version
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 17
-}
-
-java {
-    withSourcesJar()
-
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${archivesBaseName}"}
-    }
-}
-
-curseforge {
-    if(ENV.CURSEFORGE_API_KEY) {
-        apiKey = ENV.CURSEFORGE_API_KEY
-    }
-
-    project {
-        id = project.curseforge_id
-        changelog = getChangeLog()
-        releaseType = RELEASE_TYPE
-
-        addGameVersion(project.minecraft_version)
-        addGameVersion("Fabric")
-
-        mainArtifact(remapJar)  {
-            relations {
-                requiredDependency("fabric-api")
-                requiredDependency("fabric-language-kotlin")
-
-                optionalDependency("roughly-enough-items")
+// Isolation rule 4: every member a mixin adds to a vanilla or other foreign class has the dml$ prefix (unprefixed
+// added members clash with other mods). Checks the mixin sources: methods and fields that aren't @Shadow, @Override,
+// constructors or handler-less statics must start with dml$.
+def verifyMixinMembers = tasks.register('verifyMixinMembers') {
+    group = 'verification'
+    description = 'Checks that members added by mixins are prefixed with dml$'
+    def sources = files(subprojects.collect { it.file('src/main/java') }).asFileTree.matching { include '**/mixin/*.java' }
+    inputs.files(sources)
+    doLast {
+        def problems = []
+        sources.each { File f ->
+            def text = f.text
+            if (!text.contains('@Mixin')) return
+            def previous = ''
+            text.eachLine { line ->
+                // class-level declarations: exactly one indentation level
+                def m = line =~ /^ {4}(?! )(?:(?:public|private|protected|static|final|abstract)\s+)*[\w<>\[\],?.]+(?:\s*<[^>]*>)?\s+(\w+)\s*[(;=]/
+                if (m.find() && !(previous =~ /@(Shadow|Override)/) && !line.trim().startsWith('@')) {
+                    def name = m.group(1)
+                    if (!name.startsWith('dml$')) {
+                        problems << "${f.name}: ${line.trim()}"
+                    }
+                }
+                if (line.trim()) previous = line
             }
         }
-
-        afterEvaluate {
-            uploadTask.dependsOn("remapJar")
+        if (!problems.isEmpty()) {
+            throw new GradleException("Mixin members without the dml\$ prefix (docs/Isolation-rules.md, rule 4):\n  " + problems.join('\n  '))
         }
-
-    }
-
-    options {
-        forgeGradleIntegration = false
     }
 }
 
-modrinth {
-    if(ENV.MODRINTH_TOKEN) {
-        token = ENV.MODRINTH_TOKEN
-    }
+tasks.named('check') {
+    dependsOn(verifyJarContents, verifyMixinMembers)
+}
 
-    projectId = project.modrinth_id
-    versionNumber = project.mod_version
-    uploadFile = remapJar
-    gameVersions = [project.minecraft_version]
-    loaders = ['fabric']
-    versionType = RELEASE_TYPE
-    changelog = getChangeLog()
-    dependencies {
-        required.project 'fabric-api'
-        required.project 'fabric-language-kotlin'
-    }
+// The standard task names of the 26.3 ports (see Jenkinsfile)
+tasks.register('buildFabric') {
+    group = 'build'
+    description = 'Builds the Fabric jar'
+    dependsOn('build')
+}
+tasks.register('nonUiTest') {
+    group = 'verification'
+    description = 'Checks and headless game tests (registries, mixins and data packs load)'
+    dependsOn('check', 'runGametest')
+}
+tasks.register('uiTest') {
+    group = 'verification'
+    description = 'Plays the mod in the game window and takes screenshots (needs a display)'
+    dependsOn('runClientGametest')
 }

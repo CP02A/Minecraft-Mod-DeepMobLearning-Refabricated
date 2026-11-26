@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimal POM for the official LibGui release jar from https://github.com/CottonMC/LibGui/releases/tag/18.0.1
+     (its Maven, server.bbkr.space, is no longer reachable). Its own dependencies are nested in the jar. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.cottonmc</groupId>
+  <artifactId>LibGui</artifactId>
+  <version>18.0.1+26.3-rc-2</version>
+</project>

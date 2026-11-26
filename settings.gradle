@@ -1,21 +1,32 @@
 pluginManagement {
     repositories {
-        mavenCentral()
-        maven {
-            name = 'Fabric'
-            url = 'https://maven.fabricmc.net/'
-        }
         gradlePluginPortal()
+        mavenCentral()
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'Fabric'
+                    url = uri('https://maven.fabricmc.net')
+                }
+            }
+            filter {
+                includeGroupAndSubgroups('net.fabricmc')
+            }
+        }
     }
 
     plugins {
-        id 'fabric-loom' version loom_version
-        id "org.jetbrains.kotlin.jvm" version kotlin_version
+        id 'net.fabricmc.fabric-loom' version loom_version
+        id 'org.jetbrains.kotlin.jvm' version kotlin_version
     }
-
 }
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'deepmoblearning-refabricated'
 
 include 'base'
 include 'modular-armor'
 include 'simulacrum'
-

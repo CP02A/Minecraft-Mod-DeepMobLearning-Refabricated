@@ -15,3 +15,6 @@ out/
 
 run/
 runServer/
+runs/
+build-*.log
+run-*.log
