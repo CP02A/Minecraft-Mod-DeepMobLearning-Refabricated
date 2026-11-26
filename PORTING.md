@@ -10,6 +10,7 @@ Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Kotlin 2.4.21 (Fabric Language Ko
 - `./gradlew nonUiTest` (`check` + `runGametest`): the jar contains only DML classes and the nested jars bundled on
   purpose, mixin members are prefixed, and a headless game test server starts with all modules, loads every registry,
   mixin and data pack (recipes, loot tables, advancements, tags, world gen) without errors, and stops.
+- `./gradlew runServer`: a real dedicated server (with REI) creates a world and starts without errors from the mod.
 - `./gradlew uiTest` (`runClientGametest`): plays the mod in the game window (`src/clientGametest`) and takes
   screenshots in `runs/clientGametest/screenshots`:
   - every block placed (models, the data synthesizer, disruptions core and matter condenser renderers),
